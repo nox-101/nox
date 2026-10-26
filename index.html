@@ -1992,7 +1992,8 @@ function responseJSON(obj) {
       showToast("Entry saved successfully!", "success");
 
       // 4. Send Telegram Notification if configured
-      if (appState.settings.tgEnabled && appState.settings.tgBotToken && appState.settings.tgChatId) {
+      const hasRecipients = (Array.isArray(appState.settings.tgChatIds) && appState.settings.tgChatIds.length > 0) || !!appState.settings.tgChatId;
+      if (appState.settings.tgEnabled !== false && appState.settings.tgBotToken && hasRecipients) {
         sendTelegramNotificationForEntry(newEntry);
       }
     }
@@ -2101,7 +2102,8 @@ function responseJSON(obj) {
       showToast(`Transferred ₹${formatNumber(amt)} from ${fromAc.name} to ${toAc.name}!`, "success");
 
       // 4. Send Telegram Notification if configured
-      if (appState.settings.tgEnabled && appState.settings.tgBotToken && appState.settings.tgChatId) {
+      const hasTransferRecipients = (Array.isArray(appState.settings.tgChatIds) && appState.settings.tgChatIds.length > 0) || !!appState.settings.tgChatId;
+      if (appState.settings.tgEnabled !== false && appState.settings.tgBotToken && hasTransferRecipients) {
         sendTelegramNotificationForTransfer(transferEntry, fromAc, toAc);
       }
     }
@@ -2703,7 +2705,7 @@ function responseJSON(obj) {
     }
 
     async function sendTelegramNotificationForEntry(entry) {
-      if (!appState.settings.tgEnabled) return;
+      if (appState.settings.tgEnabled === false) return;
       const token = appState.settings.tgBotToken;
       if (!token) return;
 
@@ -2737,11 +2739,14 @@ function responseJSON(obj) {
         `━━━━━━━━━━━━━━━━━━\n` +
         `⏰ <i>${new Date().toLocaleString()}</i>`;
 
-      await sendTelegramNotificationToAll(msg);
+      const res = await sendTelegramNotificationToAll(msg);
+      if (res && res.success > 0) {
+        showToast(`Telegram notification sent to ${res.success} recipient(s) ✅`, "info");
+      }
     }
 
     async function sendTelegramNotificationForTransfer(entry, fromAc, toAc) {
-      if (!appState.settings.tgEnabled) return;
+      if (appState.settings.tgEnabled === false) return;
       const token = appState.settings.tgBotToken;
       if (!token) return;
 
@@ -2763,7 +2768,10 @@ function responseJSON(obj) {
         `━━━━━━━━━━━━━━━━━━\n` +
         `⏰ <i>${new Date().toLocaleString()}</i>`;
 
-      await sendTelegramNotificationToAll(msg);
+      const res = await sendTelegramNotificationToAll(msg);
+      if (res && res.success > 0) {
+        showToast(`Telegram transfer alert sent to ${res.success} recipient(s) ✅`, "info");
+      }
     }
 
     function updateSettingsUI() {
