@@ -1,206 +1,3114 @@
-<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Account Manager</title><style>
-body{font-family:Arial;margin:0;background:#f4f7fb;color:#172033}.app{max-width:1050px;margin:auto;padding:12px}.head{background:#1769e0;color:#fff;padding:18px;border-radius:16px}.tabs{display:flex;gap:8px;margin:12px 0;overflow:auto}.tab,button{border:0;border-radius:10px;padding:10px 14px;font-weight:700}.tab{background:#fff}.active,.primary{background:#1769e0;color:#fff}.card{background:#fff;padding:15px;border-radius:14px;margin-bottom:12px;box-shadow:0 5px 18px #0001}.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}.field label{display:block;font-size:12px;font-weight:bold;margin-bottom:5px;color:#687386}input,select{width:100%;height:42px;border:1px solid #ccd5e2;border-radius:9px;padding:0 9px;box-sizing:border-box}.actions{margin-top:12px;display:flex;gap:8px}.danger{background:#feeceb;color:#d92d20}.secondary{background:#edf2f8}.total{font-size:25px;font-weight:800}.table{overflow:auto}table{width:100%;border-collapse:collapse;min-width:700px}th,td{padding:9px;border-bottom:1px solid #e3e8ef;text-align:right;font-size:12px}th:first-child,td:first-child{text-align:left}th{background:#f5f7fa}.hidden{display:none}.row{display:flex;gap:8px;margin-bottom:8px}.row input{flex:1}.note{font-size:12px;color:#687386}@media(max-width:700px){.grid{grid-template-columns:1fr 1fr}}@media(max-width:430px){.grid{grid-template-columns:1fr}}
-</style></head><body><div class="app">
-<div class="head"><h2>Account Deposit & Withdrawal Manager</h2><small>Account-wise balance, transactions and expenses</small></div>
-<div class="tabs"><button class="tab active" data-p="home">Home</button><button class="tab" data-p="summary">Account Summary</button><button class="tab" data-p="expenses">Expenses</button><button class="tab" data-p="settings">Settings</button></div>
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NOX</title>
+  <!-- SheetJS for Excel (.xlsx) export -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <style>
+    :root {
+      --primary: #4f46e5;
+      --primary-hover: #4338ca;
+      --primary-light: #eef2ff;
+      --primary-border: #c7d2fe;
+      --primary-text: #3730a3;
+      
+      --success: #16a34a;
+      --success-light: #f0fdf4;
+      --success-border: #bbf7d0;
+      --success-text: #166534;
 
-<section id="home">
-<div class="card"><b>Total Account Balance</b><div class="total" id="grand">₹0.00</div></div>
-<div class="card"><h3>New Transaction</h3><div class="grid">
-<div class="field"><label>Date</label><input id="date" type="date"></div>
-<div class="field"><label>Account Name</label><select id="acc"></select></div>
-<div class="field"><label>Deposit</label><input id="dep" type="number" step="any"></div>
-<div class="field"><label>Withdraw</label><input id="withd" type="number" step="any"></div>
-</div><div class="actions"><button class="primary" id="save">Save</button><button class="secondary" id="clear">Clear</button></div></div>
-<div class="card"><h3>Transaction History</h3><div class="table"><table><thead><tr><th>Date</th><th>Account</th><th>Deposit</th><th>Withdraw</th><th>Balance After</th><th>Action</th></tr></thead><tbody id="tx"></tbody></table></div></div>
-</section>
+      --danger: #dc2626;
+      --danger-light: #fef2f2;
+      --danger-border: #fecaca;
+      --danger-text: #991b1b;
 
-<section id="summary" class="hidden"><div class="card"><h3>Account-wise Summary</h3><div class="table"><table><thead><tr><th>Account Name</th><th>Available Balance</th><th>Total Deposit</th><th>Total Withdraw</th><th>Transactions</th><th>Status</th></tr></thead><tbody id="sum"></tbody></table></div><p class="note">Deleting an account removes only its dropdown entry. Its old summary remains. Re-adding the same name creates a new account with ₹0 balance.</p></div></section>
+      --warning: #d97706;
+      --warning-light: #fffbeb;
+      --warning-border: #fde68a;
+      --warning-text: #92400e;
 
-<section id="expenses" class="hidden">
-<div class="card"><b>Total Expense</b><div class="total" id="totalExp">₹0.00</div></div>
-<div class="card"><h3>Expense</h3><div class="grid"><div class="field"><label>Date</label><input id="edate" type="date"></div><div class="field"><label>Expense Name</label><select id="ename"></select></div><div class="field"><label>Amount</label><input id="eamt" type="number" step="any"></div></div><div class="actions"><button class="primary" id="esave">Save Expense</button><button class="secondary" id="eclear">Clear</button></div></div>
-<div class="card"><h3>Expense History</h3><div class="table"><table><thead><tr><th>Date</th><th>Expense Name</th><th>Amount</th><th>Action</th></tr></thead><tbody id="ex"></tbody></table></div></div>
-</section>
+      --info: #0284c7;
+      --info-light: #f0f9ff;
+      --info-border: #bae6fd;
+      --info-text: #075985;
 
-<section id="settings" class="hidden">
-<div class="card"><h3>Account Names</h3><div id="accounts"></div><div class="row"><input id="newAcc" placeholder="Account name"><button class="primary" id="addAcc">Add</button></div><p class="note">Old transactions remain after deletion. A re-added same-name account is a new account.</p></div>
-<div class="card"><h3>Expense Names</h3><div id="enames"></div><div class="row"><input id="newEN" placeholder="Expense name"><button class="primary" id="addEN">Add</button></div></div>
-<div class="card"><h3>Google Sheets Sync</h3>
-<div class="grid">
-<div class="field" style="grid-column:span 3"><label>Google Apps Script Web App URL</label><input id="syncUrl" type="url"></div>
-<div class="field"><label>Token (if your Apps Script uses one)</label><input id="syncToken" type="text"></div>
-</div>
-<div class="actions"><button class="primary" id="syncNow">Read from Sheet</button></div>
-<p class="note" id="syncStatus">Starting: Sheet will be read before any write.</p>
-</div>
-<div class="card"><h3>Backup</h3><button class="secondary" id="export">Export</button> <button class="secondary" id="importBtn">Import</button><input id="file" type="file" accept=".json" style="display:none"></div>
-</section></div>
-<script>
-const K='account_manager_v2';
-const DEFAULT_SYNC_URL='https://script.google.com/macros/s/AKfycbyGeGadIBcDkQhtVN3Y7IkXpNs7jO9N5S-2-3wXd2OrOudV3NmWPFSMQqmH5ruJ4BB-/exec';
-const SYNC_URL_KEY='account_manager_sync_url';
-const SYNC_TOKEN_KEY='account_manager_sync_token';
-let S=JSON.parse(localStorage.getItem(K)||'null')||{accounts:[],tx:[],expenseNames:[],expenses:[]},editTx=null,editEx=null;
-let syncBusy=false, initialSyncDone=false;
-
-const $=x=>document.getElementById(x),
-money=x=>'₹'+Number(x||0).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2}),
-esc=x=>String(x).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])),
-today=()=>new Date().toISOString().slice(0,10),
-saveS=()=>localStorage.setItem(K,JSON.stringify(S));
-
-function getSyncUrl(){return ($('syncUrl').value||'').trim()}
-function getSyncToken(){return ($('syncToken').value||'').trim()}
-function syncStatus(t){$('syncStatus').textContent=t}
-
-function balance(id,exclude){return S.tx.filter(t=>t.accountId===id&&t.id!==exclude).reduce((v,t)=>v+ +t.deposit-(+t.withdraw),0)}
-
-function populate(){
-  let o=$('acc').value;
-  $('acc').innerHTML='<option value="">Select account</option>'+S.accounts.map(a=>'<option value="'+a.id+'">'+esc(a.name)+'</option>').join('');
-  if(S.accounts.some(a=>a.id===o))$('acc').value=o;
-  let e=$('ename').value;
-  $('ename').innerHTML='<option value="">Select expense</option>'+S.expenseNames.map(a=>'<option value="'+a.id+'">'+esc(a.name)+'</option>').join('');
-  if(S.expenseNames.some(a=>a.id===e))$('ename').value=e;
-  render()
-}
-
-function render(){
-  renderTx();renderSummary();renderExpenses();
-  $('grand').textContent=money(S.accounts.reduce((v,a)=>v+balance(a.id),0));
-  $('accounts').innerHTML=S.accounts.map(a=>'<div class="row"><input value="'+esc(a.name)+'" onchange="renameA(\''+a.id+'\',this.value)"><button class="danger" onclick="deleteA(\''+a.id+'\')">Delete</button></div>').join('')||'<p class="note">No active accounts.</p>';
-  $('enames').innerHTML=S.expenseNames.map(a=>'<div class="row"><input value="'+esc(a.name)+'" onchange="renameE(\''+a.id+'\',this.value)"><button class="danger" onclick="deleteE(\''+a.id+'\')">Delete</button></div>').join('')||'<p class="note">No expense names.</p>'
-}
-
-function renderTx(){
-  let a=[...S.tx].sort((x,y)=>y.date.localeCompare(x.date)||y.id.localeCompare(x.id));
-  $('tx').innerHTML=a.length?a.map(t=>{
-    let ac=S.accounts.find(x=>x.id===t.accountId),name=ac?.name||t.snap||'[Deleted account]';
-    return '<tr><td>'+t.date+'</td><td>'+esc(name)+'</td><td>'+money(t.deposit)+'</td><td>'+money(t.withdraw)+'</td><td>'+money(balance(t.accountId))+'</td><td><button class="secondary" onclick="editT(\''+t.id+'\')">Edit</button> <button class="danger" onclick="delT(\''+t.id+'\')">Delete</button></td></tr>'
-  }).join(''):'<tr><td colspan="6">No transactions.</td></tr>'
-}
-
-function renderSummary(){
-  let rows=S.accounts.map(a=>({name:a.name,id:a.id,b:balance(a.id),d:S.tx.filter(t=>t.accountId===a.id).reduce((v,t)=>v+ +t.deposit,0),w:S.tx.filter(t=>t.accountId===a.id).reduce((v,t)=>v+ +t.withdraw,0),n:S.tx.filter(t=>t.accountId===a.id).length,status:'Active'}));
-  let ids=[...new Set(S.tx.map(t=>t.accountId).filter(id=>!S.accounts.some(a=>a.id===id)))];
-  ids.forEach(id=>{let q=S.tx.filter(t=>t.accountId===id),d=q.reduce((v,t)=>v+ +t.deposit,0),w=q.reduce((v,t)=>v+ +t.withdraw,0);rows.push({name:q[0]?.snap||'[Deleted account]',b:d-w,d,w,n:q.length,status:'Deleted from dropdown'})});
-  $('sum').innerHTML=rows.map(r=>'<tr><td>'+esc(r.name)+'</td><td>'+money(r.b)+'</td><td>'+money(r.d)+'</td><td>'+money(r.w)+'</td><td>'+r.n+'</td><td>'+r.status+'</td></tr>').join('')||'<tr><td colspan="6">No accounts.</td></tr>'
-}
-
-function renderExpenses(){
-  $('totalExp').textContent=money(S.expenses.reduce((v,e)=>v+ +e.amount,0));
-  let a=[...S.expenses].sort((x,y)=>y.date.localeCompare(x.date));
-  $('ex').innerHTML=a.length?a.map(e=>{let n=S.expenseNames.find(x=>x.id===e.nameId),name=n?.name||e.snap||'[Deleted name]';return '<tr><td>'+e.date+'</td><td>'+esc(name)+'</td><td>'+money(e.amount)+'</td><td><button class="secondary" onclick="editExpense(\''+e.id+'\')">Edit</button> <button class="danger" onclick="delExpense(\''+e.id+'\')">Delete</button></td></tr>'}).join(''):'<tr><td colspan="4">No expenses.</td></tr>'
-}
-
-async function readSheet(){
-  if(syncBusy)return false;
-  const url=getSyncUrl();
-  if(!url){syncStatus('Google Sheets URL is missing.');return false}
-  syncBusy=true; syncStatus('Reading existing data from Google Sheet…');
-  try{
-    const u=new URL(url);
-    u.searchParams.set('action','load');
-    if(getSyncToken())u.searchParams.set('token',getSyncToken());
-    const r=await fetch(u.toString(),{method:'GET',cache:'no-store'});
-    if(!r.ok)throw new Error('HTTP '+r.status);
-    const out=await r.json();
-    if(!out || out.ok===false)throw new Error(out?.error||'Sheet read failed');
-    const d=out.data;
-    if(!d || !Array.isArray(d.accounts)||!Array.isArray(d.tx)||!Array.isArray(d.expenseNames)||!Array.isArray(d.expenses)){
-      throw new Error('Invalid data returned by Apps Script');
+      --bg: #f8fafc;
+      --card-bg: #ffffff;
+      --border: #e2e8f0;
+      --text-main: #0f172a;
+      --text-muted: #64748b;
+      --radius: 12px;
+      --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+      --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.07), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
+      --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1);
     }
-    // IMPORTANT: only after a successful Sheet READ do we replace local data.
-    S={accounts:d.accounts,tx:d.tx,expenseNames:d.expenseNames,expenses:d.expenses};
-    saveS(); populate(); initialSyncDone=true;
-    syncStatus('✓ Sheet data loaded. No rewrite was done during connection.');
-    return true;
-  }catch(e){
-    initialSyncDone=false;
-    syncStatus('Sheet read failed: '+e.message+'. No Sheet data was changed.');
-    return false;
-  }finally{syncBusy=false}
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    }
+
+    body {
+      background-color: var(--bg);
+      color: var(--text-main);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Top Navigation */
+    header {
+      background: #0f172a;
+      color: #fff;
+      padding: 0.85rem 1.25rem;
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.25);
+    }
+
+    .header-inner {
+      max-width: 1200px;
+      margin: 0 auto;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+    }
+
+    .app-brand {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .brand-icon {
+      background: linear-gradient(135deg, #6366f1, #3b82f6);
+      width: 42px;
+      height: 42px;
+      border-radius: 10px;
+      display: grid;
+      place-items: center;
+      font-weight: 800;
+      font-size: 1.3rem;
+      box-shadow: 0 2px 8px rgba(99, 102, 241, 0.4);
+    }
+
+    .brand-title h1 {
+      font-size: 1.2rem;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+    }
+
+    .brand-title span {
+      font-size: 0.75rem;
+      color: #94a3b8;
+    }
+
+    nav.tab-nav {
+      display: flex;
+      background: #1e293b;
+      padding: 4px;
+      border-radius: 10px;
+      gap: 4px;
+    }
+
+    .tab-btn {
+      background: transparent;
+      border: none;
+      color: #94a3b8;
+      padding: 0.55rem 1.25rem;
+      font-size: 0.88rem;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .tab-btn:hover {
+      color: #f1f5f9;
+      background: rgba(255, 255, 255, 0.06);
+    }
+
+    .tab-btn.active {
+      background: var(--primary);
+      color: #ffffff;
+      box-shadow: 0 2px 8px rgba(79, 70, 229, 0.45);
+    }
+
+    /* Main Container */
+    main {
+      flex: 1;
+      max-width: 1200px;
+      width: 100%;
+      margin: 0 auto;
+      padding: 1.5rem 1rem 3rem 1rem;
+    }
+
+    .tab-content {
+      display: none;
+    }
+
+    .tab-content.active {
+      display: block;
+      animation: fadeIn 0.25s ease-in-out;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(4px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Status Bar Strip */
+    .status-strip {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      background: #ffffff;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 0.85rem 1.25rem;
+      margin-bottom: 1.25rem;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .status-strip-item {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      font-size: 0.85rem;
+      color: var(--text-muted);
+    }
+
+    .status-strip-item strong {
+      font-size: 1.05rem;
+      color: var(--text-main);
+    }
+
+    /* Cards */
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 1.25rem;
+      padding-bottom: 0.75rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .card-title {
+      font-size: 1.15rem;
+      font-weight: 700;
+      color: var(--text-main);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 0.25rem 0.65rem;
+      border-radius: 9999px;
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
+    .badge-primary { background: var(--primary-light); color: var(--primary-text); border: 1px solid var(--primary-border); }
+    .badge-success { background: var(--success-light); color: var(--success-text); border: 1px solid var(--success-border); }
+    .badge-warning { background: var(--warning-light); color: var(--warning-text); border: 1px solid var(--warning-border); }
+    .badge-danger { background: var(--danger-light); color: var(--danger-text); border: 1px solid var(--danger-border); }
+    .badge-info { background: var(--info-light); color: var(--info-text); border: 1px solid var(--info-border); }
+
+    /* Form Fields Grid */
+    .form-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 1.25rem;
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+    }
+
+    .form-label {
+      font-size: 0.88rem;
+      font-weight: 600;
+      color: #334155;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .form-control {
+      width: 100%;
+      padding: 0.75rem 0.95rem;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-size: 0.95rem;
+      color: var(--text-main);
+      background: #fff;
+      transition: all 0.2s ease;
+      outline: none;
+    }
+
+    .form-control:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.15);
+    }
+
+    .form-control[readonly] {
+      background: #f8fafc;
+      color: #334155;
+      cursor: not-allowed;
+      border-style: solid;
+      border-color: #cbd5e1;
+    }
+
+    .form-control.highlight-dynamic {
+      background: #f0fdf4;
+      border-color: #86efac;
+      color: #166534;
+      font-weight: 700;
+      font-size: 1.1rem;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }
+
+    /* Auto Entries Section */
+    .calc-overview-card {
+      background: #f8fafc;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.25rem;
+      margin: 1.25rem 0;
+    }
+
+    .calc-card-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1rem;
+    }
+
+    .calc-card {
+      background: #ffffff;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .calc-card.highlight {
+      background: #eff6ff;
+      border-color: #bfdbfe;
+    }
+
+    .calc-card-title {
+      font-size: 0.8rem;
+      font-weight: 700;
+      color: var(--text-muted);
+      letter-spacing: 0.02em;
+    }
+
+    .calc-card-value {
+      font-size: 1.3rem;
+      font-weight: 800;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      color: var(--text-main);
+    }
+
+    /* Toggle Switch */
+    .toggle-wrapper {
+      display: flex;
+      align-items: center;
+      gap: 0.85rem;
+      margin-top: 1rem;
+      padding: 0.75rem 1rem;
+      background: #ffffff;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+    }
+
+    .switch {
+      position: relative;
+      display: inline-block;
+      width: 48px;
+      height: 26px;
+    }
+
+    .switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    .slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: #cbd5e1;
+      transition: .3s cubic-bezier(0.4, 0, 0.2, 1);
+      border-radius: 26px;
+    }
+
+    .slider:before {
+      position: absolute;
+      content: "";
+      height: 20px;
+      width: 20px;
+      left: 3px;
+      bottom: 3px;
+      background-color: white;
+      transition: .3s cubic-bezier(0.4, 0, 0.2, 1);
+      border-radius: 50%;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    }
+
+    input:checked + .slider {
+      background-color: var(--primary);
+    }
+
+    input:checked + .slider:before {
+      transform: translateX(22px);
+    }
+
+    .toggle-label {
+      font-size: 0.88rem;
+      font-weight: 600;
+      color: #1e293b;
+    }
+
+    /* Action Buttons Row */
+    .actions-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 1rem;
+      margin-top: 1.25rem;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      padding: 0.7rem 1.5rem;
+      font-size: 0.92rem;
+      font-weight: 600;
+      border-radius: 8px;
+      border: 1px solid transparent;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      text-decoration: none;
+    }
+
+    .btn-primary {
+      background: var(--primary);
+      color: #fff;
+      box-shadow: 0 3px 8px rgba(79, 70, 229, 0.3);
+    }
+
+    .btn-primary:hover {
+      background: var(--primary-hover);
+      transform: translateY(-1px);
+    }
+
+    .btn-secondary {
+      background: #f1f5f9;
+      color: #334155;
+      border-color: #cbd5e1;
+    }
+
+    .btn-secondary:hover {
+      background: #e2e8f0;
+      color: #0f172a;
+    }
+
+    .btn-success {
+      background: var(--success);
+      color: #fff;
+      box-shadow: 0 3px 8px rgba(22, 163, 74, 0.25);
+    }
+
+    .btn-success:hover {
+      background: #15803d;
+    }
+
+    .btn-danger {
+      background: var(--danger);
+      color: #fff;
+    }
+
+    .btn-danger:hover {
+      background: #b91c1c;
+    }
+
+    .btn-sm {
+      padding: 0.4rem 0.75rem;
+      font-size: 0.8rem;
+    }
+
+    /* Tables */
+    .table-responsive {
+      width: 100%;
+      overflow-x: auto;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: #fff;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.88rem;
+      text-align: left;
+      white-space: nowrap;
+    }
+
+    thead th {
+      background: #f8fafc;
+      color: #475569;
+      font-weight: 700;
+      padding: 0.8rem 0.9rem;
+      border-bottom: 2px solid var(--border);
+      font-size: 0.82rem;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+
+    tbody td {
+      padding: 0.8rem 0.9rem;
+      border-bottom: 1px solid var(--border);
+      color: var(--text-main);
+    }
+
+    tbody tr:hover {
+      background: #f8fafc;
+    }
+
+    .cell-num {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-weight: 600;
+    }
+
+    .text-success { color: var(--success); }
+    .text-danger { color: var(--danger); }
+    .text-primary { color: var(--primary); }
+    .text-warning { color: var(--warning); }
+
+    /* Stats Grid */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .stat-card {
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.1rem 1.25rem;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .stat-card-title {
+      font-size: 0.75rem;
+      font-weight: 700;
+      color: var(--text-muted);
+      text-transform: uppercase;
+    }
+
+    .stat-card-val {
+      font-size: 1.4rem;
+      font-weight: 800;
+      margin-top: 0.3rem;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }
+
+    /* Modal */
+    .modal-backdrop {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(15, 23, 42, 0.6);
+      backdrop-filter: blur(4px);
+      z-index: 100;
+      align-items: center;
+      justify-content: center;
+      padding: 1rem;
+    }
+
+    .modal-backdrop.open {
+      display: flex;
+    }
+
+    .modal-box {
+      background: #fff;
+      width: 100%;
+      max-width: 580px;
+      border-radius: var(--radius);
+      box-shadow: var(--shadow-lg);
+      overflow: hidden;
+      max-height: 90vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .modal-header {
+      padding: 1.1rem 1.35rem;
+      background: #f8fafc;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .modal-title {
+      font-weight: 800;
+      font-size: 1.15rem;
+    }
+
+    .modal-close {
+      background: none;
+      border: none;
+      font-size: 1.4rem;
+      cursor: pointer;
+      color: #64748b;
+    }
+
+    .modal-body {
+      padding: 1.35rem;
+      overflow-y: auto;
+    }
+
+    .modal-footer {
+      padding: 0.9rem 1.35rem;
+      background: #f8fafc;
+      border-top: 1px solid var(--border);
+      display: flex;
+      justify-content: flex-end;
+      gap: 0.75rem;
+    }
+
+    /* Toasts */
+    .toast-container {
+      position: fixed;
+      bottom: 1.5rem;
+      right: 1.5rem;
+      z-index: 200;
+      display: flex;
+      flex-direction: column;
+      gap: 0.6rem;
+    }
+
+    .toast {
+      background: #0f172a;
+      color: #fff;
+      padding: 0.85rem 1.25rem;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      box-shadow: var(--shadow-lg);
+      display: flex;
+      align-items: center;
+      gap: 0.65rem;
+      animation: slideIn 0.3s ease-out;
+      min-width: 280px;
+    }
+
+    .toast.toast-success { border-left: 5px solid var(--success); }
+    .toast.toast-error { border-left: 5px solid var(--danger); }
+    .toast.toast-info { border-left: 5px solid var(--info); }
+    .toast.toast-warning { border-left: 5px solid var(--warning); }
+
+    @keyframes slideIn {
+      from { transform: translateX(100%); opacity: 0; }
+      to { transform: translateX(0); opacity: 1; }
+    }
+
+    pre.code-block {
+      background: #0f172a;
+      color: #f1f5f9;
+      padding: 1rem;
+      border-radius: 8px;
+      font-size: 0.8rem;
+      overflow-x: auto;
+      font-family: ui-monospace, SFMono-Regular, monospace;
+      margin: 0.75rem 0;
+    }
+
+    .filter-bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.85rem;
+      align-items: center;
+      margin-bottom: 1rem;
+      background: #fff;
+      padding: 0.85rem 1rem;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+    }
+
+    .filter-group {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    /* Transfer Card Style */
+    .transfer-card {
+      border-top: 3px solid #3b82f6;
+    }
+
+    @media (max-width: 768px) {
+      .header-inner {
+        flex-direction: column;
+        align-items: stretch;
+      }
+      nav.tab-nav {
+        justify-content: space-around;
+      }
+      .actions-row {
+        flex-direction: column;
+      }
+      .actions-row .btn {
+        width: 100%;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Top Header Navigation -->
+  <header>
+    <div class="header-inner">
+      <div class="app-brand">
+        <div class="brand-icon">₹</div>
+        <div class="brand-title">
+          <h1>NOX</h1>
+          <span>Daily Transaction & Calculation App</span>
+        </div>
+      </div>
+      <nav class="tab-nav">
+        <button class="tab-btn active" onclick="switchTab('home')">
+          <span>🏠</span> HOME
+        </button>
+        <button class="tab-btn" onclick="switchTab('history')">
+          <span>📜</span> HISTORY
+        </button>
+        <button class="tab-btn" onclick="switchTab('settings')">
+          <span>⚙️</span> SETTINGS
+        </button>
+      </nav>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main>
+
+    <!-- TAB 1: HOME (Clean & Neat UI) -->
+    <div id="tab-home" class="tab-content active">
+
+      <!-- Status strip showing current active account & opening balance -->
+      <div class="status-strip">
+        <div class="status-strip-item">
+          <span>Selected Account:</span>
+          <strong id="strip-active-ac">Loading...</strong>
+        </div>
+        <div class="status-strip-item">
+          <span>Account Balance:</span>
+          <strong id="strip-active-bal" class="text-primary">₹ 0.00</strong>
+        </div>
+        <div class="status-strip-item">
+          <span>Opening Points:</span>
+          <strong id="strip-active-open" class="text-success">0</strong>
+        </div>
+      </div>
+
+      <!-- Clean Daily Entry Card -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">
+            <span>📝</span> Daily Entry
+          </div>
+        </div>
+
+        <form id="entry-form" onsubmit="handleSaveEntry(event)">
+          <div class="form-grid">
+
+            <!-- Date -->
+            <div class="form-group">
+              <label class="form-label" for="entry-date">Date</label>
+              <input type="date" id="entry-date" class="form-control" required>
+            </div>
+
+            <!-- 1. Opening Point Balance -->
+            <div class="form-group">
+              <label class="form-label" for="opening-point-bal">Opening Point Balance</label>
+              <input type="number" step="any" id="opening-point-bal" class="form-control" placeholder="0" required oninput="calculateAll()">
+            </div>
+
+            <!-- 2. Account Name -->
+            <div class="form-group">
+              <label class="form-label" for="ac-name-select">Account Name</label>
+              <select id="ac-name-select" class="form-control" required onchange="handleAccountChange()">
+                <!-- Populated dynamically via JS -->
+              </select>
+            </div>
+
+            <!-- 3. Account Balance -->
+            <div class="form-group">
+              <label class="form-label" for="ac-balance-display">Account Balance</label>
+              <input type="text" id="ac-balance-display" class="form-control highlight-dynamic" readonly value="₹ 0.00">
+            </div>
+
+            <!-- 4. Pay In -->
+            <div class="form-group">
+              <label class="form-label" for="pay-in">Pay In</label>
+              <input type="number" step="any" id="pay-in" class="form-control" placeholder="0" min="0" oninput="calculateAll()">
+            </div>
+
+            <!-- 5. Pay Out -->
+            <div class="form-group">
+              <label class="form-label" for="pay-out">Pay Out</label>
+              <input type="number" step="any" id="pay-out" class="form-control" placeholder="0" min="0" oninput="calculateAll()">
+            </div>
+
+            <!-- 6. Closing Point Balance -->
+            <div class="form-group">
+              <label class="form-label" for="closing-point-bal">Closing Point Balance</label>
+              <input type="number" step="any" id="closing-point-bal" class="form-control" placeholder="0" required oninput="calculateAll()">
+            </div>
+
+            <!-- 9. Expense (Exp) -->
+            <div class="form-group">
+              <label class="form-label" for="exp-val">Expense (Exp)</label>
+              <input type="number" step="any" id="exp-val" class="form-control" placeholder="0" min="0" oninput="calculateAll()">
+            </div>
+
+          </div>
+
+          <!-- Clean Auto Calculations Overview -->
+          <div class="calc-overview-card">
+            <div class="calc-card-grid">
+              <!-- 7. Commission -->
+              <div class="calc-card highlight">
+                <div class="calc-card-title">Commission</div>
+                <div class="calc-card-value text-primary" id="disp-total-comm">₹ 0.00</div>
+              </div>
+
+              <!-- A. Pay In Comm (4%) -->
+              <div class="calc-card">
+                <div class="calc-card-title">Pay In Comm (4%)</div>
+                <div class="calc-card-value text-success" id="disp-payin-comm">₹ 0.00</div>
+              </div>
+
+              <!-- B. Pay Out Comm (1%) -->
+              <div class="calc-card">
+                <div class="calc-card-title">Pay Out Comm (1%)</div>
+                <div class="calc-card-value text-warning" id="disp-payout-comm">₹ 0.00</div>
+              </div>
+
+              <!-- 8. Points Profit -->
+              <div class="calc-card">
+                <div class="calc-card-title">Points Profit</div>
+                <div class="calc-card-value" id="disp-points-profit">0</div>
+              </div>
+            </div>
+
+            <!-- Rate Toggle -->
+            <div class="toggle-wrapper">
+              <label class="switch">
+                <input type="checkbox" id="rate-toggle" onchange="handleRateToggle()">
+                <span class="slider"></span>
+              </label>
+              <div>
+                <span class="toggle-label">Calculate Profit @ Rate:</span>
+                <span id="rate-toggle-status" style="font-size: 0.82rem; color: #64748b; margin-left: 6px; font-weight: 600;">OFF</span>
+              </div>
+            </div>
+
+            <!-- Shown when Toggle is ON -->
+            <div id="rate-calc-box" style="display: none; margin-top: 0.75rem; background: #fff; padding: 1rem; border-radius: 8px; border: 1px solid var(--border);">
+              <div class="form-grid" style="grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));">
+                <div class="form-group">
+                  <label class="form-label" for="profit-rate">Rate</label>
+                  <input type="number" step="any" id="profit-rate" class="form-control" placeholder="Enter rate" oninput="calculateAll()">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Profit Amount</label>
+                  <input type="text" id="profit-rate-result" class="form-control highlight-dynamic" readonly value="₹ 0.00">
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Action Buttons -->
+          <div class="actions-row">
+            <button type="submit" class="btn btn-primary" id="save-btn">
+              <span>💾</span> SAVE
+            </button>
+            <button type="button" class="btn btn-secondary" onclick="handleClearEntries()">
+              <span>🧹</span> Clear Entries
+            </button>
+          </div>
+        </form>
+      </div>
+
+      <!-- Account to Account Transfer Card (Home Page) -->
+      <div class="card transfer-card">
+        <div class="card-header">
+          <div class="card-title">
+            <span>🔁</span> Account to Account Transfer
+          </div>
+          <span class="badge badge-primary">Direct Transfer</span>
+        </div>
+
+        <form id="transfer-form" onsubmit="handleAccountTransfer(event)">
+          <div class="form-grid">
+            <div class="form-group">
+              <label class="form-label" for="transfer-date">Date</label>
+              <input type="date" id="transfer-date" class="form-control" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="transfer-from-ac">From Account (Deduct)</label>
+              <select id="transfer-from-ac" class="form-control" required onchange="updateTransferPreview()">
+                <!-- Populated dynamically -->
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="transfer-to-ac">To Account (Add)</label>
+              <select id="transfer-to-ac" class="form-control" required onchange="updateTransferPreview()">
+                <!-- Populated dynamically -->
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="transfer-amount">Amount (₹)</label>
+              <input type="number" step="any" id="transfer-amount" class="form-control" placeholder="Enter transfer amount" min="0.01" required oninput="updateTransferPreview()">
+            </div>
+            <div class="form-group" style="grid-column: 1 / -1;">
+              <label class="form-label" for="transfer-remark">Remark / Note (Optional)</label>
+              <input type="text" id="transfer-remark" class="form-control" placeholder="e.g. Fund transfer / Cash settlement">
+            </div>
+          </div>
+
+          <!-- Transfer Preview Box -->
+          <div id="transfer-preview-box" style="margin-top: 1rem; padding: 0.85rem 1rem; background: #f8fafc; border: 1px solid var(--border); border-radius: 8px; font-size: 0.85rem; color: #475569; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0.75rem;">
+            <div>From Bal: <strong id="preview-from-bal" class="text-danger">₹ 0.00</strong></div>
+            <div>Transfer: <strong id="preview-transfer-amt" class="text-primary">₹ 0.00</strong></div>
+            <div>To Bal: <strong id="preview-to-bal" class="text-success">₹ 0.00</strong></div>
+          </div>
+
+          <div class="actions-row">
+            <button type="submit" class="btn btn-primary" style="background: #2563eb;">
+              <span>🔁</span> Transfer Now
+            </button>
+            <button type="reset" class="btn btn-secondary" onclick="resetTransferForm()">
+              <span>🧹</span> Reset
+            </button>
+          </div>
+        </form>
+      </div>
+
+    </div>
+
+    <!-- TAB 2: HISTORY -->
+    <div id="tab-history" class="tab-content">
+
+      <!-- Summary Statistics Header -->
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-card-title">Total Entries</div>
+          <div class="stat-card-val" id="stat-total-entries">0</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-card-title">Total Pay In</div>
+          <div class="stat-card-val text-success" id="stat-total-payin">₹ 0</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-card-title">Total Pay Out</div>
+          <div class="stat-card-val text-warning" id="stat-total-payout">₹ 0</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-card-title">Total Commission</div>
+          <div class="stat-card-val text-primary" id="stat-total-comm">₹ 0</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-card-title">Total Expense (Exp)</div>
+          <div class="stat-card-val text-danger" id="stat-total-exp">₹ 0</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">
+            <span>📜</span> History Table
+          </div>
+          <div style="display: flex; gap: 8px;">
+            <button class="btn btn-sm btn-secondary" onclick="exportToExcel()">
+              <span>📊</span> Export Excel (.xlsx)
+            </button>
+          </div>
+        </div>
+
+        <!-- Search & Filter Bar -->
+        <div class="filter-bar">
+          <div class="filter-group">
+            <label style="font-size: 0.8rem; font-weight: 700;">Search:</label>
+            <input type="text" id="filter-search" class="form-control" style="width: 170px; padding: 0.4rem 0.65rem;" placeholder="Search entries..." oninput="renderHistoryTable()">
+          </div>
+          <div class="filter-group">
+            <label style="font-size: 0.8rem; font-weight: 700;">Account:</label>
+            <select id="filter-account" class="form-control" style="width: 160px; padding: 0.4rem 0.65rem;" onchange="renderHistoryTable()">
+              <option value="">All Accounts</option>
+            </select>
+          </div>
+          <div class="filter-group">
+            <label style="font-size: 0.8rem; font-weight: 700;">Date:</label>
+            <input type="date" id="filter-date" class="form-control" style="width: 155px; padding: 0.4rem 0.65rem;" onchange="renderHistoryTable()">
+          </div>
+          <button class="btn btn-sm btn-secondary" onclick="resetFilters()">Reset</button>
+        </div>
+
+        <!-- History Table -->
+        <div class="table-responsive">
+          <table id="history-table">
+            <thead>
+              <tr>
+                <th>Sr.</th>
+                <th>Date</th>
+                <th>Ac Name</th>
+                <th>Pay In</th>
+                <th>Pay Out</th>
+                <th>Opening Point Balance</th>
+                <th>Closing Point Balance</th>
+                <th>Points Profit</th>
+                <th>Ac Balance</th>
+                <th>Commission</th>
+                <th>Exp</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="history-table-body">
+              <!-- Dynamically populated via JS -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 3: SETTINGS -->
+    <div id="tab-settings" class="tab-content">
+
+      <!-- 1. Ac Name & Bal Dropdown Settings -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">
+            <span>1️⃣</span> Account Manager
+          </div>
+          <span class="badge badge-primary">Settings for Dropdown</span>
+        </div>
+
+        <!-- Add Form -->
+        <div style="background: #f8fafc; padding: 1.25rem; border-radius: 8px; border: 1px solid var(--border); margin-bottom: 1.5rem;">
+          <div class="form-grid" style="grid-template-columns: 2fr 1.5fr auto; align-items: flex-end;">
+            <div class="form-group">
+              <label class="form-label" for="new-ac-name">Account Name</label>
+              <input type="text" id="new-ac-name" class="form-control" placeholder="e.g. Account 1 or Cash Box">
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="new-ac-bal">Opening Balance (₹)</label>
+              <input type="number" step="any" id="new-ac-bal" class="form-control" placeholder="0">
+            </div>
+            <div class="form-group">
+              <button type="button" class="btn btn-primary" onclick="handleAddAccount()">
+                <span>➕</span> Add
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Accounts Table -->
+        <div class="table-responsive">
+          <table>
+            <thead>
+              <tr>
+                <th>Sr.</th>
+                <th>Account Name</th>
+                <th>Ac Balance (₹)</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="accounts-table-body">
+              <!-- Populated dynamically via JS -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- 2. Extra Point Adjustment -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">
+            <span>2️⃣</span> Extra Point Adjustment
+          </div>
+          <span class="badge badge-success">Adds to Opening Point Balance</span>
+        </div>
+        <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1.25rem;">
+          Current Prefilled Opening Point Balance: <strong id="settings-current-opening-display" style="color: var(--primary); font-size: 1.15rem;">0</strong>
+        </p>
+
+        <div style="background: #f8fafc; padding: 1.25rem; border-radius: 8px; border: 1px solid var(--border);">
+          <div class="form-grid" style="grid-template-columns: 2fr auto; align-items: flex-end;">
+            <div class="form-group">
+              <label class="form-label" for="extra-points-input">Add Extra Points</label>
+              <input type="number" step="any" id="extra-points-input" class="form-control" placeholder="Enter extra points to add">
+            </div>
+            <div class="form-group">
+              <button type="button" class="btn btn-success" onclick="handleAddExtraPoints()">
+                <span>➕</span> Add to Opening Balance
+              </button>
+            </div>
+          </div>
+
+          <div style="margin-top: 1rem; padding-top: 0.85rem; border-top: 1px dashed var(--border); display: flex; gap: 0.65rem; align-items: center; flex-wrap: wrap;">
+            <span style="font-size: 0.82rem; color: var(--text-muted); font-weight: 600;">Or Directly Set Opening Point Balance:</span>
+            <input type="number" step="any" id="direct-opening-input" class="form-control" style="width: 150px; padding: 0.45rem 0.65rem;" placeholder="Direct value">
+            <button class="btn btn-sm btn-secondary" onclick="handleDirectSetOpening()">Set Directly</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 3. Telegram Bot Notification Settings (Multi-Recipient Broadcast) -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">
+            <span>📢</span> Telegram Notification Bot
+          </div>
+          <span class="badge badge-info">Multi-Recipient Broadcast</span>
+        </div>
+        <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1.25rem;">
+          Configure your Telegram Bot token and add multiple Chat IDs (users, partners, groups) to broadcast automated ledger updates.
+        </p>
+
+        <!-- Bot Token -->
+        <div class="form-group" style="margin-bottom: 1.25rem;">
+          <label class="form-label" for="tg-bot-token">
+            Telegram Bot Token
+            <span class="badge badge-primary">Same Bot Token</span>
+          </label>
+          <div style="display: flex; gap: 4px;">
+            <input type="password" id="tg-bot-token" class="form-control" placeholder="e.g. 7123456789:AAHk123abc456def...">
+            <button type="button" class="btn btn-secondary btn-sm" onclick="toggleTokenVisibility('tg-bot-token')" title="Show/Hide Token" style="padding: 0 0.75rem;">👁️</button>
+          </div>
+        </div>
+
+        <!-- Add Chat ID Form -->
+        <div style="background: #f8fafc; padding: 1.1rem; border-radius: 8px; border: 1px solid var(--border); margin-bottom: 1.25rem;">
+          <label style="font-size: 0.88rem; font-weight: 700; color: #1e293b; display: block; margin-bottom: 0.6rem;">
+            ➕ Add Recipient Chat ID / Group ID:
+          </label>
+          <div class="form-grid" style="grid-template-columns: 2fr 1.5fr auto; align-items: flex-end;">
+            <div class="form-group">
+              <label class="form-label" for="new-tg-chat-id">Chat ID / Channel ID</label>
+              <input type="text" id="new-tg-chat-id" class="form-control" placeholder="e.g. 123456789 or @channel">
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="new-tg-chat-name">Name / Remark (Optional)</label>
+              <input type="text" id="new-tg-chat-name" class="form-control" placeholder="e.g. Owner / Partner / Group">
+            </div>
+            <div class="form-group">
+              <button type="button" class="btn btn-primary" onclick="handleAddTelegramChatId()">
+                <span>➕</span> Add Chat ID
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Chat IDs Table -->
+        <label style="font-size: 0.85rem; font-weight: 700; color: #334155; margin-bottom: 0.5rem; display: block;">
+          Configured Telegram Recipients (<span id="tg-recipients-count">0</span>):
+        </label>
+        <div class="table-responsive" style="margin-bottom: 1rem;">
+          <table>
+            <thead>
+              <tr>
+                <th>Sr.</th>
+                <th>Name / Label</th>
+                <th>Chat ID</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody id="tg-chat-ids-table-body">
+              <!-- Populated dynamically via JS -->
+            </tbody>
+          </table>
+        </div>
+
+        <div style="margin-top: 1rem; display: flex; align-items: center; gap: 0.5rem;">
+          <input type="checkbox" id="tg-enabled-checkbox" style="width: 18px; height: 18px; cursor: pointer;">
+          <label for="tg-enabled-checkbox" style="font-size: 0.88rem; font-weight: 600; cursor: pointer;">
+            Enable Telegram notifications automatically when saving entries
+          </label>
+        </div>
+
+        <div class="actions-row" style="margin-top: 1.25rem;">
+          <button type="button" class="btn btn-primary" onclick="handleSaveTelegramConfig()">
+            <span>💾</span> Save Telegram Config
+          </button>
+          <button type="button" class="btn btn-secondary" onclick="handleSendTelegramTest()">
+            <span>🧪</span> Send Test Message to All
+          </button>
+          <span id="tg-status" style="font-size: 0.88rem; font-weight: 700; color: var(--text-muted);"></span>
+        </div>
+      </div>
+
+      <!-- 4. Google Sheet Connection (With Secret Token Protection) -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">
+            <span>📊</span> Google Sheet Connection
+          </div>
+          <button class="btn btn-sm btn-secondary" onclick="openAppsScriptGuideModal()">
+            <span>📋</span> View Apps Script Code
+          </button>
+        </div>
+        <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.85rem;">
+          Connect Google Sheet via Web App URL. <strong>Token Security:</strong> Google Sheet tabhi read ya write hogi jab Apps Script me dala hua secret token yahan match karega.
+        </p>
+
+        <div style="background: #eef2ff; border: 1px solid #c7d2fe; border-radius: 8px; padding: 0.75rem 1rem; margin-bottom: 1.25rem; font-size: 0.82rem; color: #3730a3; display: flex; align-items: flex-start; gap: 0.5rem;">
+          <span>🔒</span>
+          <div>
+            <strong>GitHub Public Hosting Safe:</strong> Aap ise GitHub par freely upload kar sakte hain. Aapka secret token aur Google Sheet URL sirf aapke personal browser ke storage me save rehte hain, code me hardcode nahi hote.
+          </div>
+        </div>
+
+        <div class="form-grid" style="grid-template-columns: 1.8fr 1.2fr;">
+          <div class="form-group">
+            <label class="form-label" for="gsheet-url">Web App URL</label>
+            <input type="url" id="gsheet-url" class="form-control" placeholder="https://script.google.com/macros/s/.../exec">
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="gsheet-token">
+              Security Token
+              <span class="badge badge-primary">Must Match Apps Script</span>
+            </label>
+            <div style="display: flex; gap: 4px;">
+              <input type="password" id="gsheet-token" class="form-control" placeholder="Enter secret token">
+              <button type="button" class="btn btn-secondary btn-sm" onclick="toggleTokenVisibility('gsheet-token')" title="Show/Hide Token" style="padding: 0 0.75rem;">👁️</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="actions-row" style="margin-top: 1rem;">
+          <button type="button" class="btn btn-primary" onclick="handleSaveGSheetConfig()">
+            <span>💾</span> Save Config
+          </button>
+          <button type="button" class="btn btn-success" onclick="handleFetchFromGoogleSheet()">
+            <span>⬇️</span> Fetch Data First
+          </button>
+          <button type="button" class="btn btn-secondary" onclick="handleSafeUploadToGoogleSheet()">
+            <span>⬆️</span> Upload to Google Sheet
+          </button>
+          <span id="gsheet-status" style="font-size: 0.88rem; font-weight: 700; color: var(--text-muted);"></span>
+        </div>
+      </div>
+
+      <!-- 5. Backup (JSON / Excel) -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">
+            <span>💾</span> Data Backup & Restore
+          </div>
+          <span class="badge badge-primary">Offline Safe</span>
+        </div>
+        <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1.25rem;">
+          Export and import complete backup of entries and accounts.
+        </p>
+
+        <div class="actions-row" style="margin-top: 0;">
+          <button type="button" class="btn btn-secondary" onclick="exportDataJSON()">
+            <span>📦</span> Export JSON
+          </button>
+          <label class="btn btn-secondary" style="margin-bottom: 0; cursor: pointer;">
+            <span>📂</span> Import JSON
+            <input type="file" id="import-json-file" accept=".json" style="display: none;" onchange="importDataJSON(event)">
+          </label>
+          <button type="button" class="btn btn-success" onclick="exportToExcel()">
+            <span>📊</span> Export Excel
+          </button>
+          <button type="button" class="btn btn-danger btn-sm" style="margin-left: auto;" onclick="handleResetAllData()">
+            <span>⚠️</span> Reset All Data
+          </button>
+        </div>
+      </div>
+
+    </div>
+
+  </main>
+
+  <!-- Edit Entry Modal (For History Table) -->
+  <div class="modal-backdrop" id="edit-entry-modal">
+    <div class="modal-box">
+      <div class="modal-header">
+        <div class="modal-title">✏️ Edit History Entry</div>
+        <button class="modal-close" onclick="closeEditEntryModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <form id="edit-entry-form" onsubmit="handleUpdateEntry(event)">
+          <input type="hidden" id="edit-entry-id">
+          <div class="form-grid">
+            <div class="form-group">
+              <label class="form-label" for="edit-date">Date</label>
+              <input type="date" id="edit-date" class="form-control" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="edit-ac-name">Account Name</label>
+              <select id="edit-ac-name" class="form-control" required>
+                <!-- Populated dynamically -->
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="edit-opening-bal">Opening Point Balance</label>
+              <input type="number" step="any" id="edit-opening-bal" class="form-control" required oninput="calcEditModal()">
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="edit-closing-bal">Closing Point Balance</label>
+              <input type="number" step="any" id="edit-closing-bal" class="form-control" required oninput="calcEditModal()">
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="edit-payin">Pay In</label>
+              <input type="number" step="any" id="edit-payin" class="form-control" oninput="calcEditModal()">
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="edit-payout">Pay Out</label>
+              <input type="number" step="any" id="edit-payout" class="form-control" oninput="calcEditModal()">
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="edit-exp">Expense (Exp)</label>
+              <input type="number" step="any" id="edit-exp" class="form-control" oninput="calcEditModal()">
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="edit-ac-bal">Account Balance</label>
+              <input type="number" step="any" id="edit-ac-bal" class="form-control" required>
+            </div>
+          </div>
+
+          <div style="margin-top: 1rem; background: #f8fafc; padding: 0.85rem; border-radius: 8px; font-size: 0.82rem; color: #475569; display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 0.5rem;">
+            <div>Pay In Comm (4%): <strong id="edit-disp-payin-comm" class="text-success">₹ 0.00</strong></div>
+            <div>Pay Out Comm (1%): <strong id="edit-disp-payout-comm" class="text-warning">₹ 0.00</strong></div>
+            <div>Commission: <strong id="edit-disp-total-comm" class="text-primary">₹ 0.00</strong></div>
+            <div>Points Profit: <strong id="edit-disp-profit">0</strong></div>
+          </div>
+
+          <div class="modal-footer" style="margin-top: 1rem; padding: 0.75rem 0 0 0; background: none; border: none;">
+            <button type="button" class="btn btn-secondary" onclick="closeEditEntryModal()">Cancel</button>
+            <button type="submit" class="btn btn-primary">Update Entry</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Edit Account Modal -->
+  <div class="modal-backdrop" id="edit-ac-modal">
+    <div class="modal-box">
+      <div class="modal-header">
+        <div class="modal-title">✏️ Edit Account</div>
+        <button class="modal-close" onclick="closeEditAcModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="edit-ac-id">
+        <div class="form-group" style="margin-bottom: 1rem;">
+          <label class="form-label" for="edit-ac-name-val">Account Name</label>
+          <input type="text" id="edit-ac-name-val" class="form-control" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="edit-ac-bal-val">Account Balance (₹)</label>
+          <input type="number" step="any" id="edit-ac-bal-val" class="form-control" required>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="closeEditAcModal()">Cancel</button>
+        <button type="button" class="btn btn-primary" onclick="handleSaveEditAc()">Save Changes</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Google Apps Script Guide Modal -->
+  <div class="modal-backdrop" id="gas-guide-modal">
+    <div class="modal-box" style="max-width: 700px;">
+      <div class="modal-header">
+        <div class="modal-title">🔐 Google Apps Script Setup Guide (Token Security)</div>
+        <button class="modal-close" onclick="closeAppsScriptGuideModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 0.85rem 1rem; margin-bottom: 1rem; font-size: 0.84rem; color: #166534; line-height: 1.5;">
+          <strong>🛡️ Token Protection Rule:</strong><br>
+          Code ke andar line 7 par <code>const SECRET_TOKEN = "APNA_CUSTOM_SECRET_TOKEN";</code> diya gaya hai. Yahan apna manchaaha secret password/token likhein, aur wahi exact token Web App ke Settings me <strong>Security Token</strong> box me enter karein.<br>
+          <em>Jab tak token match nahi hoga, Google Sheet se na data read (fetch) hoga aur na hi write (upload) ho sakega!</em>
+        </div>
+
+        <p style="font-size: 0.85rem; color: #334155; line-height: 1.5; margin-bottom: 0.75rem;">
+          1. Apni Google Sheet open karein.<br>
+          2. Menu me <strong>Extensions &gt; Apps Script</strong> par click karein.<br>
+          3. Purana code hata kar neeche diya gaya code paste karein.<br>
+          4. <strong>Line 7</strong> par <code>SECRET_TOKEN</code> ki jagah apna secret password likhein.<br>
+          5. <strong>Deploy &gt; New deployment &gt; Select type: Web App</strong> par click karein.<br>
+          6. <strong>Execute as: Me</strong> aur <strong>Who has access: Anyone</strong> select karke Deploy karein.<br>
+          7. Web App URL ko copy karein aur Settings tab me paste karein.
+        </p>
+
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+          <strong style="font-size: 0.85rem;">Apps Script Code (With Strict Token Verification):</strong>
+          <button class="btn btn-sm btn-secondary" onclick="copyGasCode()">Copy Code</button>
+        </div>
+        <pre class="code-block" id="gas-code-content">// =========================================================================
+// 🔐 GOOGLE APPS SCRIPT WITH TOKEN SECURITY FOR POINT & ACCOUNT LEDGER
+// =========================================================================
+
+// 🔴 APNA SECRET TOKEN YAHAN SET KAREIN (Change this to your strong password/token):
+const SECRET_TOKEN = "MY_SECRET_TOKEN_123";
+
+function doPost(e) {
+  try {
+    if (!e || !e.postData || !e.postData.contents) {
+      return responseJSON({ status: "error", message: "No data received" });
+    }
+
+    var request = JSON.parse(e.postData.contents);
+    var userToken = (request.token || "").toString().trim();
+
+    // 🔒 Strictly Validate Token Before Allowing Any Changes
+    if (!userToken || userToken !== SECRET_TOKEN) {
+      return responseJSON({
+        status: "error",
+        message: "⛔ Access Denied: Invalid or missing Security Token!"
+      });
+    }
+
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    
+    if (request.action === "upload") {
+      // 1. Entries Sheet
+      var entrySheet = ss.getSheetByName("Entries") || ss.insertSheet("Entries");
+      entrySheet.clearContents();
+      entrySheet.appendRow([
+        "Sr", "Date", "Account", "Pay In", "Pay Out", 
+        "Opening Point Balance", "Closing Point Balance", "Points Profit", 
+        "Ac Balance", "Commission", "Exp"
+      ]);
+      
+      var entries = request.data.entries || [];
+      for (var i = 0; i < entries.length; i++) {
+        var row = entries[i];
+        if (row.type === "transfer") {
+          entrySheet.appendRow([
+            i + 1, row.date, row.acName, "-", "-",
+            "-", "-", "Transfer",
+            row.acBalance, "-", "-"
+          ]);
+        } else {
+          entrySheet.appendRow([
+            i + 1, row.date, row.acName, row.payIn, row.payOut,
+            row.openingPointBal, row.closingPointBal, row.pointsProfit,
+            row.acBalance, row.commission, row.exp
+          ]);
+        }
+      }
+      
+      // 2. Accounts Sheet
+      var acSheet = ss.getSheetByName("Accounts") || ss.insertSheet("Accounts");
+      acSheet.clearContents();
+      acSheet.appendRow(["ID", "Account Name", "Current Balance"]);
+      var accounts = request.data.accounts || [];
+      for (var j = 0; j < accounts.length; j++) {
+        acSheet.appendRow([accounts[j].id, accounts[j].name, accounts[j].balance]);
+      }
+      
+      return responseJSON({
+        status: "success",
+        message: "Data uploaded successfully!",
+        count: entries.length
+      });
+    }
+
+    return responseJSON({ status: "error", message: "Unknown action requested." });
+
+  } catch (err) {
+    return responseJSON({ status: "error", message: err.toString() });
+  }
 }
 
-async function writeSheet(){
-  if(!initialSyncDone){alert('Sheet data has not been read yet. Read from Sheet first; nothing will be rewritten.');return false}
-  const url=getSyncUrl();
-  if(!url){syncStatus('Google Sheets URL is missing.');return false}
-  syncBusy=true;syncStatus('Saving changes to Google Sheet…');
-  try{
-    const payload={action:'save',data:S};
-    if(getSyncToken())payload.token=getSyncToken();
-    const r=await fetch(url,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(payload)});
-    if(!r.ok)throw new Error('HTTP '+r.status);
-    const out=await r.json();
-    if(!out || out.ok===false)throw new Error(out?.error||'Sheet save failed');
-    // Use returned saved data if Apps Script sends it.
-    if(out.data && Array.isArray(out.data.accounts)){S=out.data;saveS();populate()}
-    syncStatus('✓ Saved to Google Sheet.');
-    return true;
-  }catch(e){
-    syncStatus('Sheet save failed: '+e.message+'. Local data is kept.');
-    return false;
-  }finally{syncBusy=false}
+function doGet(e) {
+  try {
+    var userToken = (e && e.parameter && e.parameter.token ? e.parameter.token : "").toString().trim();
+
+    // 🔒 Strictly Validate Token Before Allowing Any Data Read
+    if (!userToken || userToken !== SECRET_TOKEN) {
+      return responseJSON({
+        status: "error",
+        message: "⛔ Access Denied: Invalid or missing Security Token!"
+      });
+    }
+
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var entrySheet = ss.getSheetByName("Entries");
+    var entries = [];
+    if (entrySheet) {
+      var rows = entrySheet.getDataRange().getValues();
+      for (var i = 1; i < rows.length; i++) {
+        var r = rows[i];
+        if (!r[1]) continue;
+        var isTransfer = String(r[7]).toLowerCase().indexOf("transfer") !== -1;
+        entries.push({
+          id: "gs_" + i,
+          type: isTransfer ? "transfer" : "entry",
+          date: r[1],
+          acName: r[2],
+          payIn: isTransfer ? 0 : (Number(r[3]) || 0),
+          payOut: isTransfer ? 0 : (Number(r[4]) || 0),
+          openingPointBal: isTransfer ? 0 : (Number(r[5]) || 0),
+          closingPointBal: isTransfer ? 0 : (Number(r[6]) || 0),
+          pointsProfit: isTransfer ? 0 : (Number(r[7]) || 0),
+          acBalance: r[8],
+          commission: isTransfer ? 0 : (Number(r[9]) || 0),
+          exp: isTransfer ? 0 : (Number(r[10]) || 0)
+        });
+      }
+    }
+    
+    var acSheet = ss.getSheetByName("Accounts");
+    var accounts = [];
+    if (acSheet) {
+      var aRows = acSheet.getDataRange().getValues();
+      for (var j = 1; j < aRows.length; j++) {
+        if (aRows[j][1]) {
+          accounts.push({
+            id: String(aRows[j][0]) || ("ac_" + j),
+            name: aRows[j][1],
+            balance: Number(aRows[j][2]) || 0
+          });
+        }
+      }
+    }
+
+    return responseJSON({
+      status: "success",
+      data: { entries: entries, accounts: accounts }
+    });
+
+  } catch (err) {
+    return responseJSON({ status: "error", message: err.toString() });
+  }
 }
 
-function afterLocalChange(){
-  saveS();render();
-  if(initialSyncDone)writeSheet();
-}
+function responseJSON(obj) {
+  return ContentService.createTextOutput(JSON.stringify(obj))
+    .setMimeType(ContentService.MimeType.JSON);
+}</pre>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="closeAppsScriptGuideModal()">Close</button>
+      </div>
+    </div>
+  </div>
 
-$('save').onclick=()=>{
-  let d=$('date').value,id=$('acc').value,dep=+$('dep').value||0,w=+$('withd').value||0;
-  if(!d||!id||(dep===0&&w===0))return alert('Fill Date, Account and Deposit or Withdraw.');
-  let a=S.accounts.find(x=>x.id===id),o={id:editTx||crypto.randomUUID(),date:d,accountId:id,snap:a.name,deposit:dep,withdraw:w};
-  if(editTx)S.tx[S.tx.findIndex(x=>x.id===editTx)]=o;else S.tx.push(o);
-  editTx=null;$('save').textContent='Save';clearT();afterLocalChange()
-};
+  <!-- Toast Notification Container -->
+  <div class="toast-container" id="toast-container"></div>
 
-function clearT(){$('date').value=today();$('acc').value='';$('dep').value='';$('withd').value=''}
-$('clear').onclick=()=>{editTx=null;$('save').textContent='Save';clearT()};
-window.editT=id=>{let t=S.tx.find(x=>x.id===id);editTx=id;$('date').value=t.date;$('acc').value=t.accountId;$('dep').value=t.deposit;$('withd').value=t.withdraw;$('save').textContent='Update';show('home')};
-window.delT=id=>{if(confirm('Delete transaction?')){S.tx=S.tx.filter(x=>x.id!==id);afterLocalChange()}};
+  <!-- Application Logic (Single File Embedded JS) -->
+  <script>
+    const STORAGE_KEY_ACCOUNTS = "pt_ledger_accounts_v3";
+    const STORAGE_KEY_ENTRIES = "pt_ledger_entries_v3";
+    const STORAGE_KEY_SETTINGS = "pt_ledger_settings_v3";
 
-$('esave').onclick=()=>{
-  let d=$('edate').value,n=$('ename').value,a=+$('eamt').value||0;
-  if(!d||!n||a<=0)return alert('Fill all expense fields.');
-  let x=S.expenseNames.find(q=>q.id===n),o={id:editEx||crypto.randomUUID(),date:d,nameId:n,snap:x.name,amount:a};
-  if(editEx)S.expenses[S.expenses.findIndex(x=>x.id===editEx)]=o;else S.expenses.push(o);
-  editEx=null;$('esave').textContent='Save Expense';clearE();afterLocalChange()
-};
-function clearE(){$('edate').value=today();$('ename').value='';$('eamt').value=''}
-$('eclear').onclick=()=>{editEx=null;$('esave').textContent='Save Expense';clearE()};
-window.editExpense=id=>{let e=S.expenses.find(x=>x.id===id);editEx=id;$('edate').value=e.date;$('ename').value=e.nameId;$('eamt').value=e.amount;$('esave').textContent='Update Expense';show('expenses')};
-window.delExpense=id=>{if(confirm('Delete expense?')){S.expenses=S.expenses.filter(x=>x.id!==id);afterLocalChange()}};
+    let appState = {
+      accounts: [],
+      entries: [],
+      settings: {
+        prefilledOpeningPointBal: 0,
+        gsheetUrl: "",
+        gsheetToken: "",
+        tgBotToken: "",
+        tgChatIds: [],
+        tgEnabled: true
+      }
+    };
 
-$('addAcc').onclick=()=>{let n=$('newAcc').value.trim();if(!n)return;if(S.accounts.some(a=>a.name.toLowerCase()===n.toLowerCase()))return alert('Active account already exists.');S.accounts.push({id:crypto.randomUUID(),name:n});$('newAcc').value='';afterLocalChange()};
-window.deleteA=id=>{if(confirm('Remove only from dropdown? Old data stays.')){S.accounts=S.accounts.filter(a=>a.id!==id);afterLocalChange()}};
-window.renameA=(id,n)=>{n=n.trim();if(!n)return populate();let a=S.accounts.find(x=>x.id===id);if(a)a.name=n;afterLocalChange()};
-$('addEN').onclick=()=>{let n=$('newEN').value.trim();if(!n)return;S.expenseNames.push({id:crypto.randomUUID(),name:n});$('newEN').value='';afterLocalChange()};
-window.deleteE=id=>{S.expenseNames=S.expenseNames.filter(x=>x.id!==id);afterLocalChange()};
-window.renameE=(id,n)=>{let a=S.expenseNames.find(x=>x.id===id);if(a)a.name=n.trim();afterLocalChange()};
+    document.addEventListener("DOMContentLoaded", () => {
+      loadState();
+      
+      const today = new Date().toISOString().split("T")[0];
+      const dateEl = document.getElementById("entry-date");
+      if (dateEl) dateEl.value = today;
 
-function show(p){document.querySelectorAll('section').forEach(x=>x.classList.toggle('hidden',x.id!==p));document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('active',x.dataset.p===p));render()}
-document.querySelectorAll('.tab').forEach(x=>x.onclick=()=>show(x.dataset.p));
+      const tDateEl = document.getElementById("transfer-date");
+      if (tDateEl) tDateEl.value = today;
 
-$('syncUrl').value=localStorage.getItem(SYNC_URL_KEY)||DEFAULT_SYNC_URL;
-$('syncToken').value=localStorage.getItem(SYNC_TOKEN_KEY)||'';
-$('syncUrl').onchange=()=>localStorage.setItem(SYNC_URL_KEY,$('syncUrl').value.trim());
-$('syncToken').onchange=()=>localStorage.setItem(SYNC_TOKEN_KEY,$('syncToken').value.trim());
-$('syncNow').onclick=async()=>{localStorage.setItem(SYNC_URL_KEY,getSyncUrl());localStorage.setItem(SYNC_TOKEN_KEY,getSyncToken());await readSheet()};
+      populateAccountsDropdown();
+      
+      const openEl = document.getElementById("opening-point-bal");
+      if (openEl) {
+        openEl.value = appState.settings.prefilledOpeningPointBal || 0;
+      }
+      
+      updateSettingsUI();
+      calculateAll();
+      updateTransferPreview();
+      renderHistoryTable();
+      renderAccountsTable();
+      renderTelegramChatIdsTable();
+    });
 
-$('export').onclick=()=>{let a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(S,null,2)],{type:'application/json'}));a.download='account-manager-backup.json';a.click()};
-$('importBtn').onclick=()=>$('file').click();
-$('file').onchange=async e=>{try{S=JSON.parse(await e.target.files[0].text());afterLocalChange()}catch{alert('Invalid backup')}};
+    function loadState() {
+      try {
+        const savedAccounts = localStorage.getItem(STORAGE_KEY_ACCOUNTS);
+        const savedEntries = localStorage.getItem(STORAGE_KEY_ENTRIES);
+        const savedSettings = localStorage.getItem(STORAGE_KEY_SETTINGS);
 
-$('date').value=today();$('edate').value=today();populate();
+        if (savedAccounts) {
+          appState.accounts = JSON.parse(savedAccounts);
+        } else {
+          // Migration from previous v2 if exists
+          const oldAc = localStorage.getItem("pt_ledger_accounts_v2");
+          if (oldAc) {
+            appState.accounts = JSON.parse(oldAc);
+          } else {
+            appState.accounts = [
+              { id: "ac_1", name: "Account 1", balance: 10000 },
+              { id: "ac_2", name: "Account 2", balance: 5000 }
+            ];
+          }
+          saveAccounts();
+        }
 
-// CRITICAL STARTUP ORDER:
-// 1) Do NOT POST.
-// 2) Read the current Sheet.
-// 3) Replace local state only after a valid Sheet response.
-// 4) Only future user changes may POST.
-(async()=>{await readSheet()})();
-</script></body></html>
+        if (savedEntries) {
+          appState.entries = JSON.parse(savedEntries);
+        } else {
+          const oldEn = localStorage.getItem("pt_ledger_entries_v2");
+          if (oldEn) {
+            appState.entries = JSON.parse(oldEn);
+            saveEntries();
+          }
+        }
+
+        if (savedSettings) {
+          appState.settings = Object.assign(appState.settings, JSON.parse(savedSettings));
+        } else {
+          const oldSt = localStorage.getItem("pt_ledger_settings_v2");
+          if (oldSt) {
+            appState.settings = Object.assign(appState.settings, JSON.parse(oldSt));
+            saveSettings();
+          }
+        }
+
+        // Migrate single tgChatId to tgChatIds array if needed
+        if (!Array.isArray(appState.settings.tgChatIds)) {
+          if (appState.settings.tgChatId) {
+            appState.settings.tgChatIds = [{ id: "cid_" + Date.now(), chatId: appState.settings.tgChatId, name: "Recipient 1" }];
+          } else {
+            appState.settings.tgChatIds = [];
+          }
+        }
+      } catch (e) {
+        console.error("Error loading state:", e);
+      }
+    }
+
+    function saveAccounts() {
+      localStorage.setItem(STORAGE_KEY_ACCOUNTS, JSON.stringify(appState.accounts));
+    }
+
+    function saveEntries() {
+      localStorage.setItem(STORAGE_KEY_ENTRIES, JSON.stringify(appState.entries));
+    }
+
+    function saveSettings() {
+      localStorage.setItem(STORAGE_KEY_SETTINGS, JSON.stringify(appState.settings));
+    }
+
+    function switchTab(tabName) {
+      document.querySelectorAll(".tab-btn").forEach(btn => btn.classList.remove("active"));
+      document.querySelectorAll(".tab-content").forEach(content => content.classList.remove("active"));
+
+      const targetTab = document.getElementById("tab-" + tabName);
+      if (targetTab) targetTab.classList.add("active");
+
+      const activeBtn = Array.from(document.querySelectorAll(".tab-btn")).find(btn => 
+        btn.textContent.toLowerCase().includes(tabName)
+      );
+      if (activeBtn) activeBtn.classList.add("active");
+
+      if (tabName === "history") {
+        renderHistoryTable();
+      } else if (tabName === "settings") {
+        renderAccountsTable();
+        renderTelegramChatIdsTable();
+        updateSettingsUI();
+      } else if (tabName === "home") {
+        populateAccountsDropdown();
+        calculateAll();
+        updateTransferPreview();
+      }
+    }
+
+    function populateAccountsDropdown() {
+      const select = document.getElementById("ac-name-select");
+      const filterSelect = document.getElementById("filter-account");
+      const editSelect = document.getElementById("edit-ac-name");
+      const fromAcSelect = document.getElementById("transfer-from-ac");
+      const toAcSelect = document.getElementById("transfer-to-ac");
+      
+      const currentSelected = select ? select.value : "";
+      const currentFrom = fromAcSelect ? fromAcSelect.value : "";
+      const currentTo = toAcSelect ? toAcSelect.value : "";
+
+      if (select) select.innerHTML = "";
+      if (filterSelect) filterSelect.innerHTML = '<option value="">All Accounts</option>';
+      if (editSelect) editSelect.innerHTML = "";
+      if (fromAcSelect) fromAcSelect.innerHTML = "";
+      if (toAcSelect) toAcSelect.innerHTML = "";
+
+      if (appState.accounts.length === 0) {
+        const opt = document.createElement("option");
+        opt.value = "";
+        opt.textContent = "-- No accounts found. Add in Settings --";
+        if (select) select.appendChild(opt);
+        return;
+      }
+
+      appState.accounts.forEach((ac, idx) => {
+        // Main Form Dropdown
+        if (select) {
+          const opt = document.createElement("option");
+          opt.value = ac.id;
+          opt.textContent = `${ac.name} (Bal: ₹${formatNumber(ac.balance)})`;
+          select.appendChild(opt);
+        }
+
+        // Filter Dropdown
+        if (filterSelect) {
+          const fOpt = document.createElement("option");
+          fOpt.value = ac.name;
+          fOpt.textContent = ac.name;
+          filterSelect.appendChild(fOpt);
+        }
+
+        // Edit Modal Dropdown
+        if (editSelect) {
+          const eOpt = document.createElement("option");
+          eOpt.value = ac.id;
+          eOpt.textContent = ac.name;
+          editSelect.appendChild(eOpt);
+        }
+
+        // Transfer From & To Dropdowns
+        if (fromAcSelect) {
+          const fromOpt = document.createElement("option");
+          fromOpt.value = ac.id;
+          fromOpt.textContent = `${ac.name} (Bal: ₹${formatNumber(ac.balance)})`;
+          fromAcSelect.appendChild(fromOpt);
+        }
+
+        if (toAcSelect) {
+          const toOpt = document.createElement("option");
+          toOpt.value = ac.id;
+          toOpt.textContent = `${ac.name} (Bal: ₹${formatNumber(ac.balance)})`;
+          toAcSelect.appendChild(toOpt);
+        }
+      });
+
+      if (currentSelected && appState.accounts.some(a => a.id === currentSelected)) {
+        if (select) select.value = currentSelected;
+      }
+
+      if (currentFrom && appState.accounts.some(a => a.id === currentFrom)) {
+        if (fromAcSelect) fromAcSelect.value = currentFrom;
+      }
+
+      if (currentTo && appState.accounts.some(a => a.id === currentTo)) {
+        if (toAcSelect) toAcSelect.value = currentTo;
+      } else if (appState.accounts.length > 1 && toAcSelect) {
+        toAcSelect.selectedIndex = 1;
+      }
+    }
+
+    function handleAccountChange() {
+      calculateAll();
+    }
+
+    function handleRateToggle() {
+      const toggle = document.getElementById("rate-toggle");
+      const status = document.getElementById("rate-toggle-status");
+      const calcBox = document.getElementById("rate-calc-box");
+
+      if (toggle.checked) {
+        status.textContent = "ON";
+        status.style.color = "var(--primary)";
+        calcBox.style.display = "block";
+      } else {
+        status.textContent = "OFF";
+        status.style.color = "#64748b";
+        calcBox.style.display = "none";
+        document.getElementById("profit-rate").value = "";
+      }
+      calculateAll();
+    }
+
+    // Calculations based on the clean formulas
+    function calculateAll() {
+      const select = document.getElementById("ac-name-select");
+      const acId = select ? select.value : "";
+      const account = appState.accounts.find(a => a.id === acId);
+
+      const baseAcBalance = account ? Number(account.balance) || 0 : 0;
+      
+      const openingPointBal = Number(document.getElementById("opening-point-bal")?.value) || 0;
+      const closingPointBal = Number(document.getElementById("closing-point-bal")?.value) || 0;
+      const payIn = Number(document.getElementById("pay-in")?.value) || 0;
+      const payOut = Number(document.getElementById("pay-out")?.value) || 0;
+      const exp = Number(document.getElementById("exp-val")?.value) || 0;
+
+      // Ac Balance = Base Ac Balance + PayIn - Pay out - exp
+      const dynamicAcBalance = baseAcBalance + payIn - payOut - exp;
+      const acBalDisplay = document.getElementById("ac-balance-display");
+      if (acBalDisplay) acBalDisplay.value = `₹ ${formatNumber(dynamicAcBalance)}`;
+
+      // Update status strip
+      const stripAc = document.getElementById("strip-active-ac");
+      const stripBal = document.getElementById("strip-active-bal");
+      const stripOpen = document.getElementById("strip-active-open");
+      if (stripAc) stripAc.textContent = account ? account.name : "None";
+      if (stripBal) stripBal.textContent = `₹ ${formatNumber(dynamicAcBalance)}`;
+      if (stripOpen) stripOpen.textContent = formatNumber(openingPointBal);
+
+      // Commission calculations: PayIn 4% + PayOut 1%
+      const payInComm = payIn * 0.04;
+      const payOutComm = payOut * 0.01;
+      const totalComm = payInComm + payOutComm;
+
+      const dispPayin = document.getElementById("disp-payin-comm");
+      const dispPayout = document.getElementById("disp-payout-comm");
+      const dispTotal = document.getElementById("disp-total-comm");
+      if (dispPayin) dispPayin.textContent = `₹ ${formatNumber(payInComm)}`;
+      if (dispPayout) dispPayout.textContent = `₹ ${formatNumber(payOutComm)}`;
+      if (dispTotal) dispTotal.textContent = `₹ ${formatNumber(totalComm)}`;
+
+      // Points profit = Closing point Bal - Opening point Balance
+      const pointsProfit = closingPointBal - openingPointBal;
+      const profitEl = document.getElementById("disp-points-profit");
+      if (profitEl) {
+        profitEl.textContent = formatNumber(pointsProfit);
+        if (pointsProfit > 0) {
+          profitEl.className = "calc-card-value text-success";
+        } else if (pointsProfit < 0) {
+          profitEl.className = "calc-card-value text-danger";
+        } else {
+          profitEl.className = "calc-card-value";
+        }
+      }
+
+      // Rate Toggle Calculation: Points profit x Rate
+      const isRateOn = document.getElementById("rate-toggle")?.checked || false;
+      const rateVal = Number(document.getElementById("profit-rate")?.value) || 0;
+      const rateResultEl = document.getElementById("profit-rate-result");
+      if (isRateOn && rateResultEl) {
+        const rateCalc = pointsProfit * rateVal;
+        rateResultEl.value = `₹ ${formatNumber(rateCalc)}`;
+      } else if (rateResultEl) {
+        rateResultEl.value = "₹ 0.00";
+      }
+
+      return {
+        baseAcBalance,
+        dynamicAcBalance,
+        openingPointBal,
+        closingPointBal,
+        payIn,
+        payInComm,
+        payOut,
+        payOutComm,
+        totalComm,
+        pointsProfit,
+        isRateOn,
+        rateVal,
+        exp
+      };
+    }
+
+    async function handleSaveEntry(e) {
+      e.preventDefault();
+
+      const select = document.getElementById("ac-name-select");
+      const acId = select.value;
+      if (!acId) {
+        showToast("Please select or create an Account first in Settings!", "error");
+        return;
+      }
+
+      const account = appState.accounts.find(a => a.id === acId);
+      if (!account) {
+        showToast("Selected account not found!", "error");
+        return;
+      }
+
+      const calcs = calculateAll();
+      const dateVal = document.getElementById("entry-date").value;
+      const isRateOn = document.getElementById("rate-toggle").checked;
+      const rateVal = Number(document.getElementById("profit-rate").value) || 0;
+
+      const newEntry = {
+        id: "entry_" + Date.now(),
+        type: "entry",
+        date: dateVal,
+        acId: account.id,
+        acName: account.name,
+        openingPointBal: calcs.openingPointBal,
+        closingPointBal: calcs.closingPointBal,
+        pointsProfit: calcs.pointsProfit,
+        rateToggle: isRateOn,
+        rate: isRateOn ? rateVal : null,
+        rateProfitVal: isRateOn ? (calcs.pointsProfit * rateVal) : null,
+        payIn: calcs.payIn,
+        payInComm: calcs.payInComm,
+        payOut: calcs.payOut,
+        payOutComm: calcs.payOutComm,
+        commission: calcs.totalComm,
+        exp: calcs.exp,
+        acBalance: calcs.dynamicAcBalance,
+        timestamp: Date.now()
+      };
+
+      // 1. Save entry to history
+      appState.entries.unshift(newEntry);
+      saveEntries();
+
+      // 2. Update Account Balance
+      account.balance = calcs.dynamicAcBalance;
+      saveAccounts();
+
+      // 3. Prefill Opening Point Balance with this Closing Point Balance
+      appState.settings.prefilledOpeningPointBal = calcs.closingPointBal;
+      saveSettings();
+
+      // Reset form inputs for next entry
+      document.getElementById("opening-point-bal").value = calcs.closingPointBal;
+      document.getElementById("pay-in").value = "";
+      document.getElementById("pay-out").value = "";
+      document.getElementById("closing-point-bal").value = "";
+      document.getElementById("exp-val").value = "";
+      document.getElementById("profit-rate").value = "";
+
+      populateAccountsDropdown();
+      select.value = account.id;
+
+      calculateAll();
+      updateSettingsUI();
+      renderHistoryTable();
+
+      showToast("Entry saved successfully!", "success");
+
+      // 4. Send Telegram Notification if configured
+      if (appState.settings.tgEnabled && appState.settings.tgBotToken && appState.settings.tgChatId) {
+        sendTelegramNotificationForEntry(newEntry);
+      }
+    }
+
+    function handleClearEntries() {
+      document.getElementById("pay-in").value = "";
+      document.getElementById("pay-out").value = "";
+      document.getElementById("closing-point-bal").value = "";
+      document.getElementById("exp-val").value = "";
+      document.getElementById("profit-rate").value = "";
+      calculateAll();
+      showToast("Entries cleared.", "info");
+    }
+
+    // Account to Account Transfer
+    function updateTransferPreview() {
+      const fromId = document.getElementById("transfer-from-ac")?.value;
+      const toId = document.getElementById("transfer-to-ac")?.value;
+      const amt = Number(document.getElementById("transfer-amount")?.value) || 0;
+
+      const fromAc = appState.accounts.find(a => a.id === fromId);
+      const toAc = appState.accounts.find(a => a.id === toId);
+
+      const fromBal = fromAc ? Number(fromAc.balance) || 0 : 0;
+      const toBal = toAc ? Number(toAc.balance) || 0 : 0;
+
+      const previewFrom = document.getElementById("preview-from-bal");
+      const previewAmt = document.getElementById("preview-transfer-amt");
+      const previewTo = document.getElementById("preview-to-bal");
+
+      if (previewFrom) previewFrom.textContent = `₹ ${formatNumber(fromBal)} ➔ ₹ ${formatNumber(fromBal - amt)}`;
+      if (previewAmt) previewAmt.textContent = `₹ ${formatNumber(amt)}`;
+      if (previewTo) previewTo.textContent = `₹ ${formatNumber(toBal)} ➔ ₹ ${formatNumber(toBal + amt)}`;
+    }
+
+    async function handleAccountTransfer(e) {
+      e.preventDefault();
+
+      const fromId = document.getElementById("transfer-from-ac").value;
+      const toId = document.getElementById("transfer-to-ac").value;
+      const amt = Number(document.getElementById("transfer-amount").value);
+      const dateVal = document.getElementById("transfer-date").value;
+      const remark = document.getElementById("transfer-remark").value.trim();
+
+      if (!fromId || !toId) {
+        showToast("Please select both From and To accounts!", "error");
+        return;
+      }
+
+      if (fromId === toId) {
+        showToast("From Account and To Account cannot be the same!", "error");
+        return;
+      }
+
+      if (!amt || amt <= 0) {
+        showToast("Please enter a valid transfer amount!", "error");
+        return;
+      }
+
+      const fromAc = appState.accounts.find(a => a.id === fromId);
+      const toAc = appState.accounts.find(a => a.id === toId);
+
+      if (!fromAc || !toAc) {
+        showToast("Selected accounts not found!", "error");
+        return;
+      }
+
+      // 1. Deduct from From Account & Add to To Account
+      fromAc.balance = (Number(fromAc.balance) || 0) - amt;
+      toAc.balance = (Number(toAc.balance) || 0) + amt;
+      saveAccounts();
+
+      // 2. Record in History
+      const transferEntry = {
+        id: "tr_" + Date.now(),
+        type: "transfer",
+        date: dateVal,
+        fromAcId: fromAc.id,
+        fromAcName: fromAc.name,
+        toAcId: toAc.id,
+        toAcName: toAc.name,
+        acName: `${fromAc.name} ➡️ ${toAc.name}`,
+        amount: amt,
+        remark: remark,
+        payIn: 0,
+        payOut: 0,
+        openingPointBal: "-",
+        closingPointBal: "-",
+        pointsProfit: 0,
+        acBalance: `From: ₹${formatNumber(fromAc.balance)} | To: ₹${formatNumber(toAc.balance)}`,
+        commission: 0,
+        exp: 0,
+        timestamp: Date.now()
+      };
+
+      appState.entries.unshift(transferEntry);
+      saveEntries();
+
+      // 3. Refresh UI
+      populateAccountsDropdown();
+      calculateAll();
+      renderHistoryTable();
+      renderAccountsTable();
+      resetTransferForm();
+
+      showToast(`Transferred ₹${formatNumber(amt)} from ${fromAc.name} to ${toAc.name}!`, "success");
+
+      // 4. Send Telegram Notification if configured
+      if (appState.settings.tgEnabled && appState.settings.tgBotToken && appState.settings.tgChatId) {
+        sendTelegramNotificationForTransfer(transferEntry, fromAc, toAc);
+      }
+    }
+
+    function resetTransferForm() {
+      document.getElementById("transfer-amount").value = "";
+      document.getElementById("transfer-remark").value = "";
+      updateTransferPreview();
+    }
+
+    // Render History Table
+    function renderHistoryTable() {
+      const tbody = document.getElementById("history-table-body");
+      if (!tbody) return;
+
+      const searchFilter = (document.getElementById("filter-search")?.value || "").toLowerCase().trim();
+      const acFilter = document.getElementById("filter-account")?.value || "";
+      const dateFilter = document.getElementById("filter-date")?.value || "";
+
+      let filtered = appState.entries.filter(item => {
+        if (acFilter) {
+          if (item.type === "transfer") {
+            if (item.fromAcName !== acFilter && item.toAcName !== acFilter) return false;
+          } else if (item.acName !== acFilter) {
+            return false;
+          }
+        }
+        if (dateFilter && item.date !== dateFilter) return false;
+        if (searchFilter) {
+          const matchStr = `${item.date} ${item.acName} ${item.payIn || ''} ${item.payOut || ''} ${item.acBalance || ''} ${item.remark || ''}`.toLowerCase();
+          if (!matchStr.includes(searchFilter)) return false;
+        }
+        return true;
+      });
+
+      updateHistoryStats(filtered);
+
+      tbody.innerHTML = "";
+
+      if (filtered.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="12" style="text-align: center; color: var(--text-muted); padding: 2.5rem;">No saved entries found. Add entries or transfers from the HOME tab.</td></tr>`;
+        return;
+      }
+
+      filtered.forEach((entry, idx) => {
+        const tr = document.createElement("tr");
+
+        if (entry.type === "transfer") {
+          // Render Transfer Row
+          tr.style.backgroundColor = "#f0f7ff";
+          tr.innerHTML = `
+            <td><strong>${idx + 1}</strong></td>
+            <td>${entry.date}</td>
+            <td>
+              <span class="badge badge-warning" style="margin-right: 4px;">🔁 Transfer</span>
+              <strong>${escapeHtml(entry.acName)}</strong>
+              ${entry.remark ? `<div style="font-size: 0.72rem; color: #64748b;">${escapeHtml(entry.remark)}</div>` : ''}
+            </td>
+            <td class="cell-num text-success" title="Added to ${escapeHtml(entry.toAcName)}">+ ₹${formatNumber(entry.amount)}</td>
+            <td class="cell-num text-warning" title="Deducted from ${escapeHtml(entry.fromAcName)}">- ₹${formatNumber(entry.amount)}</td>
+            <td class="cell-num text-muted">-</td>
+            <td class="cell-num text-muted">-</td>
+            <td class="cell-num text-muted">-</td>
+            <td class="cell-num" style="font-weight: 700; color: #1e40af; font-size: 0.78rem;">${escapeHtml(entry.acBalance)}</td>
+            <td class="cell-num text-muted">-</td>
+            <td class="cell-num text-muted">-</td>
+            <td>
+              <button class="btn btn-sm btn-danger" onclick="handleDeleteTransfer('${entry.id}')">Delete</button>
+            </td>
+          `;
+        } else {
+          // Render Standard Daily Entry Row
+          let rateProfitHtml = "";
+          if (entry.rateToggle && entry.rate) {
+            rateProfitHtml = `<div style="font-size: 0.72rem; color: #4f46e5; font-weight: 600;">@ Rate ${entry.rate}: ₹${formatNumber(entry.rateProfitVal || 0)}</div>`;
+          }
+
+          const commBreakdown = `<span title="PayIn Comm: ₹${formatNumber(entry.payInComm || 0)} (4%) + PayOut Comm: ₹${formatNumber(entry.payOutComm || 0)} (1%)">₹ ${formatNumber(entry.commission)}</span>`;
+
+          tr.innerHTML = `
+            <td><strong>${idx + 1}</strong></td>
+            <td>${entry.date}</td>
+            <td><strong>${escapeHtml(entry.acName)}</strong></td>
+            <td class="cell-num text-success">+ ₹${formatNumber(entry.payIn)}</td>
+            <td class="cell-num text-warning">- ₹${formatNumber(entry.payOut)}</td>
+            <td class="cell-num">${formatNumber(entry.openingPointBal)}</td>
+            <td class="cell-num">${formatNumber(entry.closingPointBal)}</td>
+            <td class="cell-num ${entry.pointsProfit >= 0 ? 'text-success' : 'text-danger'}">
+              ${formatNumber(entry.pointsProfit)}
+              ${rateProfitHtml}
+            </td>
+            <td class="cell-num" style="font-weight: 800; color: #1e40af;">₹ ${formatNumber(entry.acBalance)}</td>
+            <td class="cell-num text-primary">${commBreakdown}</td>
+            <td class="cell-num text-danger">₹ ${formatNumber(entry.exp)}</td>
+            <td>
+              <div style="display: flex; gap: 4px;">
+                <button class="btn btn-sm btn-secondary" onclick="openEditEntryModal('${entry.id}')">Edit</button>
+                <button class="btn btn-sm btn-danger" onclick="handleDeleteEntry('${entry.id}')">Delete</button>
+              </div>
+            </td>
+          `;
+        }
+
+        tbody.appendChild(tr);
+      });
+    }
+
+    function calculateOverallSummaryStats() {
+      const totalEntries = appState.entries.length;
+      let totalPayIn = 0;
+      let totalPayOut = 0;
+      let totalComm = 0;
+      let totalExp = 0;
+
+      appState.entries.forEach(e => {
+        if (e.type !== "transfer") {
+          totalPayIn += Number(e.payIn) || 0;
+          totalPayOut += Number(e.payOut) || 0;
+          totalComm += Number(e.commission) || 0;
+          totalExp += Number(e.exp) || 0;
+        }
+      });
+
+      return { totalEntries, totalPayIn, totalPayOut, totalComm, totalExp };
+    }
+
+    function updateHistoryStats(entries) {
+      const totalEntries = entries.length;
+      let totalPayIn = 0;
+      let totalPayOut = 0;
+      let totalComm = 0;
+      let totalExp = 0;
+
+      entries.forEach(e => {
+        if (e.type !== "transfer") {
+          totalPayIn += Number(e.payIn) || 0;
+          totalPayOut += Number(e.payOut) || 0;
+          totalComm += Number(e.commission) || 0;
+          totalExp += Number(e.exp) || 0;
+        }
+      });
+
+      document.getElementById("stat-total-entries").textContent = totalEntries;
+      document.getElementById("stat-total-payin").textContent = `₹ ${formatNumber(totalPayIn)}`;
+      document.getElementById("stat-total-payout").textContent = `₹ ${formatNumber(totalPayOut)}`;
+      document.getElementById("stat-total-comm").textContent = `₹ ${formatNumber(totalComm)}`;
+      document.getElementById("stat-total-exp").textContent = `₹ ${formatNumber(totalExp)}`;
+    }
+
+    function resetFilters() {
+      document.getElementById("filter-search").value = "";
+      document.getElementById("filter-account").value = "";
+      document.getElementById("filter-date").value = "";
+      renderHistoryTable();
+    }
+
+    function handleDeleteEntry(id) {
+      const entry = appState.entries.find(e => e.id === id);
+      if (!entry) return;
+
+      if (!confirm(`Are you sure you want to delete entry for "${entry.acName}" dated ${entry.date}?`)) {
+        return;
+      }
+
+      appState.entries = appState.entries.filter(e => e.id !== id);
+      saveEntries();
+      renderHistoryTable();
+      showToast("Entry deleted successfully.", "info");
+    }
+
+    function handleDeleteTransfer(id) {
+      const entry = appState.entries.find(e => e.id === id);
+      if (!entry) return;
+
+      const reverse = confirm(`Reverse this transfer of ₹${formatNumber(entry.amount)}?\n\nClick OK to reverse the balances (refund ${entry.fromAcName} and deduct ${entry.toAcName}).\nClick Cancel to only remove the log.`);
+
+      if (reverse) {
+        const fromAc = appState.accounts.find(a => a.id === entry.fromAcId);
+        const toAc = appState.accounts.find(a => a.id === entry.toAcId);
+        if (fromAc) fromAc.balance = (Number(fromAc.balance) || 0) + Number(entry.amount);
+        if (toAc) toAc.balance = (Number(toAc.balance) || 0) - Number(entry.amount);
+        saveAccounts();
+        populateAccountsDropdown();
+        calculateAll();
+        renderAccountsTable();
+      }
+
+      appState.entries = appState.entries.filter(e => e.id !== id);
+      saveEntries();
+      renderHistoryTable();
+      showToast("Transfer removed.", "info");
+    }
+
+    function openEditEntryModal(id) {
+      const entry = appState.entries.find(e => e.id === id);
+      if (!entry || entry.type === "transfer") return;
+
+      populateAccountsDropdown();
+
+      document.getElementById("edit-entry-id").value = entry.id;
+      document.getElementById("edit-date").value = entry.date;
+      document.getElementById("edit-ac-name").value = entry.acId || "";
+      document.getElementById("edit-opening-bal").value = entry.openingPointBal;
+      document.getElementById("edit-closing-bal").value = entry.closingPointBal;
+      document.getElementById("edit-payin").value = entry.payIn;
+      document.getElementById("edit-payout").value = entry.payOut;
+      document.getElementById("edit-exp").value = entry.exp;
+      document.getElementById("edit-ac-bal").value = entry.acBalance;
+
+      calcEditModal();
+
+      document.getElementById("edit-entry-modal").classList.add("open");
+    }
+
+    function closeEditEntryModal() {
+      document.getElementById("edit-entry-modal").classList.remove("open");
+    }
+
+    function calcEditModal() {
+      const payIn = Number(document.getElementById("edit-payin").value) || 0;
+      const payOut = Number(document.getElementById("edit-payout").value) || 0;
+      const opening = Number(document.getElementById("edit-opening-bal").value) || 0;
+      const closing = Number(document.getElementById("edit-closing-bal").value) || 0;
+
+      const payInComm = payIn * 0.04;
+      const payOutComm = payOut * 0.01;
+      const totalComm = payInComm + payOutComm;
+      const profit = closing - opening;
+
+      document.getElementById("edit-disp-payin-comm").textContent = `₹ ${formatNumber(payInComm)}`;
+      document.getElementById("edit-disp-payout-comm").textContent = `₹ ${formatNumber(payOutComm)}`;
+      document.getElementById("edit-disp-total-comm").textContent = `₹ ${formatNumber(totalComm)}`;
+      document.getElementById("edit-disp-profit").textContent = formatNumber(profit);
+    }
+
+    function handleUpdateEntry(e) {
+      e.preventDefault();
+      const id = document.getElementById("edit-entry-id").value;
+      const entry = appState.entries.find(item => item.id === id);
+      if (!entry) return;
+
+      const acSelect = document.getElementById("edit-ac-name");
+      const acId = acSelect.value;
+      const account = appState.accounts.find(a => a.id === acId);
+
+      const payIn = Number(document.getElementById("edit-payin").value) || 0;
+      const payOut = Number(document.getElementById("edit-payout").value) || 0;
+      const exp = Number(document.getElementById("edit-exp").value) || 0;
+      const opening = Number(document.getElementById("edit-opening-bal").value) || 0;
+      const closing = Number(document.getElementById("edit-closing-bal").value) || 0;
+      const finalBal = Number(document.getElementById("edit-ac-bal").value) || 0;
+
+      entry.date = document.getElementById("edit-date").value;
+      entry.acId = acId;
+      entry.acName = account ? account.name : entry.acName;
+      entry.payIn = payIn;
+      entry.payInComm = payIn * 0.04;
+      entry.payOut = payOut;
+      entry.payOutComm = payOut * 0.01;
+      entry.commission = entry.payInComm + entry.payOutComm;
+      entry.openingPointBal = opening;
+      entry.closingPointBal = closing;
+      entry.pointsProfit = closing - opening;
+      entry.exp = exp;
+      entry.acBalance = finalBal;
+
+      saveEntries();
+      closeEditEntryModal();
+      renderHistoryTable();
+      showToast("Entry updated successfully!", "success");
+    }
+
+    // SETTINGS: Account Management
+    function handleAddAccount() {
+      const nameInput = document.getElementById("new-ac-name");
+      const balInput = document.getElementById("new-ac-bal");
+
+      const name = nameInput.value.trim();
+      const bal = Number(balInput.value) || 0;
+
+      if (!name) {
+        showToast("Please enter Account Name!", "error");
+        return;
+      }
+
+      const newAc = {
+        id: "ac_" + Date.now(),
+        name: name,
+        balance: bal
+      };
+
+      appState.accounts.push(newAc);
+      saveAccounts();
+
+      nameInput.value = "";
+      balInput.value = "";
+
+      renderAccountsTable();
+      populateAccountsDropdown();
+      showToast(`Account "${name}" added with balance ₹${formatNumber(bal)}`, "success");
+    }
+
+    function renderAccountsTable() {
+      const tbody = document.getElementById("accounts-table-body");
+      if (!tbody) return;
+
+      tbody.innerHTML = "";
+
+      if (appState.accounts.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="4" style="text-align: center; color: var(--text-muted); padding: 1.5rem;">No accounts created yet.</td></tr>`;
+        return;
+      }
+
+      appState.accounts.forEach((ac, idx) => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td><strong>${idx + 1}</strong></td>
+          <td><strong>${escapeHtml(ac.name)}</strong></td>
+          <td class="cell-num" style="font-weight: 800; color: #1e40af;">₹ ${formatNumber(ac.balance)}</td>
+          <td>
+            <div style="display: flex; gap: 6px;">
+              <button class="btn btn-sm btn-secondary" onclick="openEditAcModal('${ac.id}')">Edit</button>
+              <button class="btn btn-sm btn-danger" onclick="handleDeleteAccount('${ac.id}')">Delete</button>
+            </div>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function openEditAcModal(id) {
+      const ac = appState.accounts.find(a => a.id === id);
+      if (!ac) return;
+
+      document.getElementById("edit-ac-id").value = ac.id;
+      document.getElementById("edit-ac-name-val").value = ac.name;
+      document.getElementById("edit-ac-bal-val").value = ac.balance;
+
+      document.getElementById("edit-ac-modal").classList.add("open");
+    }
+
+    function closeEditAcModal() {
+      document.getElementById("edit-ac-modal").classList.remove("open");
+    }
+
+    function handleSaveEditAc() {
+      const id = document.getElementById("edit-ac-id").value;
+      const name = document.getElementById("edit-ac-name-val").value.trim();
+      const bal = Number(document.getElementById("edit-ac-bal-val").value) || 0;
+
+      if (!name) {
+        showToast("Account name cannot be empty!", "error");
+        return;
+      }
+
+      const ac = appState.accounts.find(a => a.id === id);
+      if (!ac) return;
+
+      ac.name = name;
+      ac.balance = bal;
+
+      saveAccounts();
+      closeEditAcModal();
+      renderAccountsTable();
+      populateAccountsDropdown();
+      calculateAll();
+      showToast("Account updated successfully!", "success");
+    }
+
+    function handleDeleteAccount(id) {
+      const ac = appState.accounts.find(a => a.id === id);
+      if (!ac) return;
+
+      if (!confirm(`Are you sure you want to delete account "${ac.name}"?`)) {
+        return;
+      }
+
+      appState.accounts = appState.accounts.filter(a => a.id !== id);
+      saveAccounts();
+      renderAccountsTable();
+      populateAccountsDropdown();
+      calculateAll();
+      showToast(`Account "${ac.name}" deleted.`, "info");
+    }
+
+    // SETTINGS: Extra Points
+    function handleAddExtraPoints() {
+      const input = document.getElementById("extra-points-input");
+      const extraVal = Number(input.value) || 0;
+
+      if (extraVal === 0) {
+        showToast("Please enter valid extra points!", "error");
+        return;
+      }
+
+      appState.settings.prefilledOpeningPointBal = (Number(appState.settings.prefilledOpeningPointBal) || 0) + extraVal;
+      saveSettings();
+
+      const openEl = document.getElementById("opening-point-bal");
+      if (openEl) openEl.value = appState.settings.prefilledOpeningPointBal;
+
+      input.value = "";
+      updateSettingsUI();
+      calculateAll();
+      showToast(`Added ${extraVal} extra points! New Opening Balance: ${appState.settings.prefilledOpeningPointBal}`, "success");
+    }
+
+    function handleDirectSetOpening() {
+      const input = document.getElementById("direct-opening-input");
+      const val = Number(input.value) || 0;
+
+      appState.settings.prefilledOpeningPointBal = val;
+      saveSettings();
+
+      const openEl = document.getElementById("opening-point-bal");
+      if (openEl) openEl.value = val;
+
+      input.value = "";
+      updateSettingsUI();
+      calculateAll();
+      showToast(`Opening Point Balance set to ${val}`, "success");
+    }
+
+    // SETTINGS: Telegram Notifications (Multi-Recipient Broadcast)
+    function handleAddTelegramChatId() {
+      const idInput = document.getElementById("new-tg-chat-id");
+      const nameInput = document.getElementById("new-tg-chat-name");
+
+      const chatId = idInput.value.trim();
+      const name = nameInput.value.trim() || "Recipient";
+
+      if (!chatId) {
+        showToast("Please enter a Chat ID or Channel ID!", "error");
+        return;
+      }
+
+      if (!Array.isArray(appState.settings.tgChatIds)) {
+        appState.settings.tgChatIds = [];
+      }
+
+      if (appState.settings.tgChatIds.some(item => item.chatId === chatId)) {
+        showToast("This Chat ID is already added!", "warning");
+        return;
+      }
+
+      appState.settings.tgChatIds.push({
+        id: "cid_" + Date.now(),
+        chatId: chatId,
+        name: name
+      });
+
+      saveSettings();
+      idInput.value = "";
+      nameInput.value = "";
+      renderTelegramChatIdsTable();
+      showToast(`Added Telegram recipient "${name}"`, "success");
+    }
+
+    function handleDeleteTelegramChatId(id) {
+      if (!Array.isArray(appState.settings.tgChatIds)) return;
+      appState.settings.tgChatIds = appState.settings.tgChatIds.filter(item => item.id !== id);
+      saveSettings();
+      renderTelegramChatIdsTable();
+      showToast("Telegram recipient removed.", "info");
+    }
+
+    function renderTelegramChatIdsTable() {
+      const tbody = document.getElementById("tg-chat-ids-table-body");
+      const countEl = document.getElementById("tg-recipients-count");
+      if (!tbody) return;
+
+      if (!Array.isArray(appState.settings.tgChatIds)) {
+        appState.settings.tgChatIds = [];
+      }
+
+      if (countEl) countEl.textContent = appState.settings.tgChatIds.length;
+
+      tbody.innerHTML = "";
+
+      if (appState.settings.tgChatIds.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="4" style="text-align: center; color: var(--text-muted); padding: 1.25rem;">No Chat IDs added yet. Add recipient Chat IDs above.</td></tr>`;
+        return;
+      }
+
+      appState.settings.tgChatIds.forEach((item, idx) => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td><strong>${idx + 1}</strong></td>
+          <td><strong>${escapeHtml(item.name || "Recipient")}</strong></td>
+          <td class="cell-num">${escapeHtml(item.chatId)}</td>
+          <td>
+            <button type="button" class="btn btn-sm btn-danger" onclick="handleDeleteTelegramChatId('${item.id}')">Delete</button>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function handleSaveTelegramConfig() {
+      const token = document.getElementById("tg-bot-token").value.trim();
+      const enabled = document.getElementById("tg-enabled-checkbox").checked;
+
+      appState.settings.tgBotToken = token;
+      appState.settings.tgEnabled = enabled;
+      saveSettings();
+
+      showToast("Telegram bot configuration saved!", "success");
+    }
+
+    async function sendTelegramNotificationToAll(msgHtml) {
+      const token = appState.settings.tgBotToken;
+      if (!token) return { success: 0, failed: 0, total: 0 };
+
+      let recipients = [];
+      if (Array.isArray(appState.settings.tgChatIds) && appState.settings.tgChatIds.length > 0) {
+        recipients = appState.settings.tgChatIds;
+      } else if (appState.settings.tgChatId) {
+        recipients = [{ chatId: appState.settings.tgChatId, name: "Default" }];
+      }
+
+      if (recipients.length === 0) return { success: 0, failed: 0, total: 0 };
+
+      let successCount = 0;
+      let failedCount = 0;
+      let lastError = "";
+
+      const promises = recipients.map(async (r) => {
+        try {
+          const res = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              chat_id: r.chatId,
+              text: msgHtml,
+              parse_mode: "HTML"
+            })
+          });
+          const data = await res.json();
+          if (data.ok) {
+            successCount++;
+          } else {
+            failedCount++;
+            lastError = data.description || "API error";
+          }
+        } catch (err) {
+          failedCount++;
+          lastError = err.message;
+        }
+      });
+
+      await Promise.allSettled(promises);
+      return { success: successCount, failed: failedCount, total: recipients.length, lastError };
+    }
+
+    async function handleSendTelegramTest() {
+      const token = document.getElementById("tg-bot-token").value.trim() || appState.settings.tgBotToken;
+      const recipients = (Array.isArray(appState.settings.tgChatIds) && appState.settings.tgChatIds.length > 0)
+        ? appState.settings.tgChatIds
+        : (appState.settings.tgChatId ? [{ chatId: appState.settings.tgChatId, name: "Default" }] : []);
+
+      if (!token) {
+        showToast("Please enter Telegram Bot Token first!", "error");
+        return;
+      }
+
+      if (recipients.length === 0) {
+        showToast("Please add at least one Chat ID first!", "error");
+        return;
+      }
+
+      const statusEl = document.getElementById("tg-status");
+      statusEl.textContent = `Sending test message to ${recipients.length} recipients...`;
+      statusEl.style.color = "var(--primary)";
+
+      const stats = calculateOverallSummaryStats();
+      const testMsg = `🧪 <b>Telegram Broadcast Test</b>\n` +
+        `━━━━━━━━━━━━━━━━━━━━\n` +
+        `✅ Your Telegram bot is connected successfully to <b>Point & Account Ledger</b>!\n\n` +
+        `📊 <b>CURRENT SUMMARY STATS:</b>\n` +
+        `• Total Entries: <b>${stats.totalEntries}</b>\n` +
+        `• Total Pay In: <b>₹${formatNumber(stats.totalPayIn)}</b>\n` +
+        `• Total Pay Out: <b>₹${formatNumber(stats.totalPayOut)}</b>\n` +
+        `• Total Commission: <b>₹${formatNumber(stats.totalComm)}</b>\n` +
+        `• Total Expense: <b>₹${formatNumber(stats.totalExp)}</b>\n` +
+        `━━━━━━━━━━━━━━━━━━━━\n` +
+        `⏰ <i>${new Date().toLocaleString()}</i>`;
+
+      const result = await sendTelegramNotificationToAll(testMsg);
+
+      if (result.success > 0) {
+        statusEl.textContent = `✓ Sent to ${result.success} of ${result.total} recipients successfully!`;
+        statusEl.style.color = "var(--success)";
+        showToast(`Test message sent to ${result.success} recipients!`, "success");
+      } else {
+        statusEl.textContent = "Failed: " + (result.lastError || "Could not deliver message");
+        statusEl.style.color = "var(--danger)";
+        showToast("Telegram error: " + (result.lastError || "Failed"), "error");
+      }
+    }
+
+    async function sendTelegramNotificationForEntry(entry) {
+      if (!appState.settings.tgEnabled) return;
+      const token = appState.settings.tgBotToken;
+      if (!token) return;
+
+      const stats = calculateOverallSummaryStats();
+
+      let rateText = "";
+      if (entry.rateToggle && entry.rate) {
+        rateText = `⚡ <b>Rate:</b> ${entry.rate} | <b>Profit Amount:</b> ₹${formatNumber(entry.rateProfitVal || 0)}\n`;
+      }
+
+      const msg = `📊 <b><u>LEDGER OVERALL SUMMARY</u></b>\n` +
+        `━━━━━━━━━━━━━━━━━━\n` +
+        `💰 <b>Total Pay In:</b> ₹${formatNumber(stats.totalPayIn)}\n` +
+        `💸 <b>Total Pay Out:</b> ₹${formatNumber(stats.totalPayOut)}\n` +
+        `🤝 <b>Total Commission:</b> ₹${formatNumber(stats.totalComm)}\n` +
+        `📉 <b>Total Expense:</b> ₹${formatNumber(stats.totalExp)}\n` +
+        `🔢 <b>Total Entries:</b> ${stats.totalEntries}\n` +
+        `━━━━━━━━━━━━━━━━━━\n` +
+        `📝 <b><u>NEW ENTRY SAVED</u></b>\n` +
+        `📅 <b>Date:</b> ${entry.date}\n` +
+        `🏦 <b>Account:</b> ${entry.acName}\n` +
+        `📥 <b>Pay In:</b> ₹${formatNumber(entry.payIn)} (Comm 4%: ₹${formatNumber(entry.payInComm || 0)})\n` +
+        `📤 <b>Pay Out:</b> ₹${formatNumber(entry.payOut)} (Comm 1%: ₹${formatNumber(entry.payOutComm || 0)})\n` +
+        `🎯 <b>Opening Points:</b> ${formatNumber(entry.openingPointBal)}\n` +
+        `🏁 <b>Closing Points:</b> ${formatNumber(entry.closingPointBal)}\n` +
+        `📈 <b>Points Profit:</b> ${formatNumber(entry.pointsProfit)}\n` +
+        rateText +
+        `💵 <b>Total Commission:</b> ₹${formatNumber(entry.commission)}\n` +
+        `🧾 <b>Expense (Exp):</b> ₹${formatNumber(entry.exp)}\n` +
+        `💼 <b>Final Ac Balance:</b> ₹${formatNumber(entry.acBalance)}\n` +
+        `━━━━━━━━━━━━━━━━━━\n` +
+        `⏰ <i>${new Date().toLocaleString()}</i>`;
+
+      await sendTelegramNotificationToAll(msg);
+    }
+
+    async function sendTelegramNotificationForTransfer(entry, fromAc, toAc) {
+      if (!appState.settings.tgEnabled) return;
+      const token = appState.settings.tgBotToken;
+      if (!token) return;
+
+      const stats = calculateOverallSummaryStats();
+
+      const msg = `📊 <b><u>LEDGER OVERALL SUMMARY</u></b>\n` +
+        `━━━━━━━━━━━━━━━━━━\n` +
+        `💰 <b>Total Pay In:</b> ₹${formatNumber(stats.totalPayIn)}\n` +
+        `💸 <b>Total Pay Out:</b> ₹${formatNumber(stats.totalPayOut)}\n` +
+        `🤝 <b>Total Commission:</b> ₹${formatNumber(stats.totalComm)}\n` +
+        `📉 <b>Total Expense:</b> ₹${formatNumber(stats.totalExp)}\n` +
+        `━━━━━━━━━━━━━━━━━━\n` +
+        `🔁 <b><u>ACCOUNT TO ACCOUNT TRANSFER</u></b>\n` +
+        `📅 <b>Date:</b> ${entry.date}\n` +
+        `📤 <b>From:</b> ${fromAc.name} (Bal: ₹${formatNumber(fromAc.balance)})\n` +
+        `📥 <b>To:</b> ${toAc.name} (Bal: ₹${formatNumber(toAc.balance)})\n` +
+        `💵 <b>Amount Transferred:</b> ₹${formatNumber(entry.amount)}\n` +
+        (entry.remark ? `📝 <b>Remark:</b> ${entry.remark}\n` : '') +
+        `━━━━━━━━━━━━━━━━━━\n` +
+        `⏰ <i>${new Date().toLocaleString()}</i>`;
+
+      await sendTelegramNotificationToAll(msg);
+    }
+
+    function updateSettingsUI() {
+      const displayEl = document.getElementById("settings-current-opening-display");
+      if (displayEl) {
+        displayEl.textContent = formatNumber(appState.settings.prefilledOpeningPointBal || 0);
+      }
+      const gUrl = document.getElementById("gsheet-url");
+      const gTok = document.getElementById("gsheet-token");
+      if (gUrl && appState.settings.gsheetUrl) gUrl.value = appState.settings.gsheetUrl;
+      if (gTok && appState.settings.gsheetToken) gTok.value = appState.settings.gsheetToken;
+
+      const tgTok = document.getElementById("tg-bot-token");
+      const tgEn = document.getElementById("tg-enabled-checkbox");
+      if (tgTok && appState.settings.tgBotToken) tgTok.value = appState.settings.tgBotToken;
+      if (tgEn) tgEn.checked = appState.settings.tgEnabled !== false;
+
+      renderTelegramChatIdsTable();
+    }
+
+    function toggleTokenVisibility(inputId) {
+      const el = document.getElementById(inputId);
+      if (!el) return;
+      el.type = el.type === "password" ? "text" : "password";
+    }
+
+    // SETTINGS: Google Sheets Integration with Fetch-Before-Upload Protection & Strict Token Security
+    function handleSaveGSheetConfig() {
+      const url = document.getElementById("gsheet-url").value.trim();
+      const token = document.getElementById("gsheet-token").value.trim();
+
+      appState.settings.gsheetUrl = url;
+      appState.settings.gsheetToken = token;
+      saveSettings();
+      showToast("Google Sheet configuration & token saved!", "success");
+    }
+
+    async function handleFetchFromGoogleSheet() {
+      const url = appState.settings.gsheetUrl || document.getElementById("gsheet-url").value.trim();
+      const token = appState.settings.gsheetToken || document.getElementById("gsheet-token").value.trim();
+
+      if (!url) {
+        showToast("Please enter Google Web App URL first!", "error");
+        return;
+      }
+
+      if (!token) {
+        showToast("Security Token is required! Please enter token in Settings.", "error");
+        return;
+      }
+
+      const statusEl = document.getElementById("gsheet-status");
+      statusEl.textContent = "Verifying token & fetching data from Google Sheet...";
+      statusEl.style.color = "var(--primary)";
+
+      try {
+        const fetchUrl = url + (url.includes("?") ? "&" : "?") + "action=fetch&token=" + encodeURIComponent(token);
+        const response = await fetch(fetchUrl);
+        const result = await response.json();
+
+        if (result.status === "success" && result.data) {
+          let fetchedCount = 0;
+          if (Array.isArray(result.data.entries) && result.data.entries.length > 0) {
+            // Merge with local state to prevent losing any local records
+            const existingIds = new Set(appState.entries.map(e => e.date + "_" + e.acName + "_" + e.payIn + "_" + e.payOut));
+            result.data.entries.forEach(r => {
+              const key = r.date + "_" + r.acName + "_" + r.payIn + "_" + r.payOut;
+              if (!existingIds.has(key)) {
+                appState.entries.push(r);
+                existingIds.add(key);
+              }
+            });
+            saveEntries();
+            renderHistoryTable();
+            fetchedCount = result.data.entries.length;
+          }
+
+          if (Array.isArray(result.data.accounts) && result.data.accounts.length > 0) {
+            const existingAcNames = new Set(appState.accounts.map(a => a.name));
+            result.data.accounts.forEach(a => {
+              if (!existingAcNames.has(a.name)) {
+                appState.accounts.push(a);
+                existingAcNames.add(a.name);
+              }
+            });
+            saveAccounts();
+            populateAccountsDropdown();
+            renderAccountsTable();
+          }
+
+          statusEl.textContent = `✓ Token verified! Synced ${fetchedCount} entries safely.`;
+          statusEl.style.color = "var(--success)";
+          showToast(`Token verified! Synced ${fetchedCount} entries from Google Sheet.`, "success");
+        } else {
+          throw new Error(result.message || "Invalid response from Google Sheets");
+        }
+      } catch (err) {
+        console.error("GSheet fetch error:", err);
+        statusEl.textContent = "Fetch failed: " + err.message;
+        statusEl.style.color = "var(--danger)";
+        showToast("Fetch error: " + err.message, "error");
+      }
+    }
+
+    async function handleSafeUploadToGoogleSheet() {
+      const url = appState.settings.gsheetUrl || document.getElementById("gsheet-url").value.trim();
+      const token = appState.settings.gsheetToken || document.getElementById("gsheet-token").value.trim();
+
+      if (!url) {
+        showToast("Please enter Google Web App URL first!", "error");
+        return;
+      }
+
+      if (!token) {
+        showToast("Security Token is required! Please enter token in Settings.", "error");
+        return;
+      }
+
+      // Safety Guard: Don't allow uploading 0 entries if user hasn't fetched first!
+      if (appState.entries.length === 0) {
+        const proceed = confirm("⚠️ WARNING: Your local browser has 0 entries!\n\nUploading now will overwrite your Google Sheet with empty data.\n\nClick 'Cancel' to fetch data from Google Sheet first.\nClick 'OK' only if you want to clear Google Sheet.");
+        if (!proceed) {
+          showToast("Upload cancelled. Please click 'Fetch Data First'.", "info");
+          return;
+        }
+      }
+
+      const statusEl = document.getElementById("gsheet-status");
+      statusEl.textContent = "Verifying token & uploading data...";
+      statusEl.style.color = "var(--primary)";
+
+      const payload = {
+        action: "upload",
+        token: token,
+        data: {
+          entries: appState.entries,
+          accounts: appState.accounts
+        }
+      };
+
+      try {
+        const response = await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "text/plain;charset=utf-8" },
+          body: JSON.stringify(payload)
+        });
+
+        const result = await response.json();
+        if (result.status === "success") {
+          statusEl.textContent = "✓ Token verified! Uploaded successfully.";
+          statusEl.style.color = "var(--success)";
+          showToast("Token verified! Data uploaded to Google Sheet successfully.", "success");
+        } else {
+          throw new Error(result.message || "Upload failed");
+        }
+      } catch (err) {
+        console.error("GSheet upload error:", err);
+        statusEl.textContent = "Upload failed: " + err.message;
+        statusEl.style.color = "var(--danger)";
+        showToast("Upload error: " + err.message, "error");
+      }
+    }
+
+    function openAppsScriptGuideModal() {
+      document.getElementById("gas-guide-modal").classList.add("open");
+    }
+
+    function closeAppsScriptGuideModal() {
+      document.getElementById("gas-guide-modal").classList.remove("open");
+    }
+
+    function copyGasCode() {
+      const code = document.getElementById("gas-code-content").textContent;
+      navigator.clipboard.writeText(code).then(() => {
+        showToast("Apps Script code copied to clipboard!", "success");
+      }).catch(() => {
+        showToast("Please copy code manually from the box.", "info");
+      });
+    }
+
+    // SETTINGS: Backup -> Export JSON, Import JSON, Export Excel
+    function exportDataJSON() {
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(appState, null, 2));
+      const downloadAnchor = document.createElement("a");
+      const filename = `point_ledger_backup_${new Date().toISOString().split("T")[0]}.json`;
+      downloadAnchor.setAttribute("href", dataStr);
+      downloadAnchor.setAttribute("download", filename);
+      document.body.appendChild(downloadAnchor);
+      downloadAnchor.click();
+      downloadAnchor.remove();
+      showToast("Backup JSON file exported!", "success");
+    }
+
+    function importDataJSON(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = function(event) {
+        try {
+          const imported = JSON.parse(event.target.result);
+          if (imported.accounts && Array.isArray(imported.accounts)) {
+            appState.accounts = imported.accounts;
+          }
+          if (imported.entries && Array.isArray(imported.entries)) {
+            appState.entries = imported.entries;
+          }
+          if (imported.settings) {
+            appState.settings = Object.assign(appState.settings, imported.settings);
+          }
+
+          saveAccounts();
+          saveEntries();
+          saveSettings();
+
+          populateAccountsDropdown();
+          renderAccountsTable();
+          renderHistoryTable();
+          updateSettingsUI();
+          calculateAll();
+          updateTransferPreview();
+
+          showToast("Data restored successfully from backup!", "success");
+        } catch (err) {
+          showToast("Invalid JSON file!", "error");
+        }
+      };
+      reader.readAsText(file);
+      e.target.value = "";
+    }
+
+    function exportToExcel() {
+      if (appState.entries.length === 0) {
+        showToast("No entries to export!", "info");
+        return;
+      }
+
+      if (typeof XLSX !== "undefined") {
+        const rows = appState.entries.map((item, idx) => {
+          if (item.type === "transfer") {
+            return {
+              "Sr": idx + 1,
+              "Type": "Transfer",
+              "Date": item.date,
+              "Account / Details": item.acName,
+              "Amount (₹)": item.amount,
+              "Pay In": "-",
+              "Pay Out": "-",
+              "Opening Point Balance": "-",
+              "Closing Point Balance": "-",
+              "Points Profit": "-",
+              "Ac Balance": item.acBalance,
+              "Commission": "-",
+              "Exp": "-",
+              "Remark": item.remark || "-"
+            };
+          }
+          return {
+            "Sr": idx + 1,
+            "Type": "Daily Entry",
+            "Date": item.date,
+            "Account / Details": item.acName,
+            "Amount (₹)": "-",
+            "Pay In": item.payIn,
+            "Pay Out": item.payOut,
+            "Opening Point Balance": item.openingPointBal,
+            "Closing Point Balance": item.closingPointBal,
+            "Points Profit": item.pointsProfit,
+            "Ac Balance": item.acBalance,
+            "Commission": item.commission,
+            "Exp": item.exp,
+            "Remark": "-"
+          };
+        });
+
+        const worksheet = XLSX.utils.json_to_sheet(rows);
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, "Entries");
+
+        const acRows = appState.accounts.map((a, idx) => ({
+          "Sr": idx + 1,
+          "Ac Name": a.name,
+          "Ac Balance": a.balance
+        }));
+        const acWorksheet = XLSX.utils.json_to_sheet(acRows);
+        XLSX.utils.book_append_sheet(workbook, acWorksheet, "Accounts");
+
+        const filename = `ledger_entries_${new Date().toISOString().split("T")[0]}.xlsx`;
+        XLSX.writeFile(workbook, filename);
+        showToast("Excel (.xlsx) file downloaded!", "success");
+      } else {
+        exportToCSVFallback();
+      }
+    }
+
+    function exportToCSVFallback() {
+      const headers = ["Sr", "Date", "Account", "Pay In", "Pay Out", "Opening Point", "Closing Point", "Points Profit", "Ac Balance", "Commission", "Exp"];
+      const csvRows = [headers.join(",")];
+
+      appState.entries.forEach((item, idx) => {
+        const row = [
+          idx + 1,
+          `"${item.date}"`,
+          `"${item.acName}"`,
+          item.payIn || 0,
+          item.payOut || 0,
+          item.openingPointBal || 0,
+          item.closingPointBal || 0,
+          item.pointsProfit || 0,
+          `"${item.acBalance}"`,
+          item.commission || 0,
+          item.exp || 0
+        ];
+        csvRows.push(row.join(","));
+      });
+
+      const blob = new Blob([csvRows.join("\n")], { type: "text/csv;charset=utf-8;" });
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.setAttribute("download", `ledger_entries_${new Date().toISOString().split("T")[0]}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      showToast("CSV file exported!", "success");
+    }
+
+    function handleResetAllData() {
+      if (!confirm("⚠️ Are you sure you want to delete ALL data? This will clear all entries and accounts.")) {
+        return;
+      }
+      if (!confirm("Confirm once more: this cannot be undone unless you have a JSON backup.")) {
+        return;
+      }
+
+      localStorage.removeItem(STORAGE_KEY_ACCOUNTS);
+      localStorage.removeItem(STORAGE_KEY_ENTRIES);
+      localStorage.removeItem(STORAGE_KEY_SETTINGS);
+
+      appState = {
+        accounts: [{ id: "ac_1", name: "Account 1", balance: 10000 }],
+        entries: [],
+        settings: { prefilledOpeningPointBal: 0, gsheetUrl: "", gsheetToken: "", tgBotToken: "", tgChatId: "", tgEnabled: true }
+      };
+
+      saveAccounts();
+      saveEntries();
+      saveSettings();
+
+      populateAccountsDropdown();
+      renderAccountsTable();
+      renderHistoryTable();
+      updateSettingsUI();
+      calculateAll();
+      updateTransferPreview();
+
+      showToast("All data reset to defaults.", "info");
+    }
+
+    function formatNumber(num) {
+      if (num === null || num === undefined || isNaN(num)) return "0";
+      return Number(num).toLocaleString("en-IN", {
+        minimumFractionDigits: Number.isInteger(Number(num)) ? 0 : 2,
+        maximumFractionDigits: 2
+      });
+    }
+
+    function escapeHtml(str) {
+      if (!str) return "";
+      return String(str)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+    }
+
+    function showToast(message, type = "info") {
+      const container = document.getElementById("toast-container");
+      const toast = document.createElement("div");
+      toast.className = `toast toast-${type}`;
+      
+      let icon = "ℹ️";
+      if (type === "success") icon = "✅";
+      if (type === "error") icon = "❌";
+      if (type === "warning") icon = "⚠️";
+
+      toast.innerHTML = `<span>${icon}</span> <span>${escapeHtml(message)}</span>`;
+      container.appendChild(toast);
+
+      setTimeout(() => {
+        toast.style.opacity = "0";
+        toast.style.transform = "translateX(100%)";
+        toast.style.transition = "all 0.3s ease";
+        setTimeout(() => toast.remove(), 300);
+      }, 3500);
+    }
+  </script>
+</body>
+</html>
