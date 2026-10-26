@@ -1128,7 +1128,7 @@
             <span class="badge badge-primary">Same Bot Token</span>
           </label>
           <div style="display: flex; gap: 4px;">
-            <input type="password" id="tg-bot-token" class="form-control" value="8877242572:AAEHB6VBwxHEUzohIvTUyLqZgEEc8U5CTXA">
+            <input type="password" id="tg-bot-token" class="form-control" placeholder="e.g. 7123456789:AAHk123abc456def...">
             <button type="button" class="btn btn-secondary btn-sm" onclick="toggleTokenVisibility('tg-bot-token')" title="Show/Hide Token" style="padding: 0 0.75rem;">👁️</button>
           </div>
         </div>
@@ -1217,7 +1217,7 @@
         <div class="form-grid" style="grid-template-columns: 1.8fr 1.2fr;">
           <div class="form-group">
             <label class="form-label" for="gsheet-url">Web App URL</label>
-            <input type="url" id="gsheet-url" class="form-control" value="https://script.google.com/macros/s/AKfycbwXJdIjkoFw_9xRtFv2oHkHGSPECFztNlkwuZO0ioxLw4Tdu9ZhChYD3TibCw9pqyfwVg/exec">
+            <input type="url" id="gsheet-url" class="form-control" placeholder="https://script.google.com/macros/s/.../exec">
           </div>
           <div class="form-group">
             <label class="form-label" for="gsheet-token">
@@ -1457,9 +1457,25 @@ function doPost(e) {
         acSheet.appendRow([accounts[j].id, accounts[j].name, accounts[j].balance]);
       }
       
+      // 3. Telegram Bot Config & Recipients Sheet
+      var tgSheet = ss.getSheetByName("Telegram") || ss.insertSheet("Telegram");
+      tgSheet.clearContents();
+      tgSheet.appendRow(["Configuration", "Value"]);
+      
+      var tgData = request.data.telegram || {};
+      tgSheet.appendRow(["Bot Token", tgData.botToken || ""]);
+      tgSheet.appendRow(["Notifications Enabled", tgData.enabled !== false ? "YES" : "NO"]);
+      tgSheet.appendRow(["", ""]); // separator row
+      tgSheet.appendRow(["Sr", "Recipient Name", "Chat ID"]);
+      
+      var chatIds = tgData.chatIds || [];
+      for (var k = 0; k < chatIds.length; k++) {
+        tgSheet.appendRow([k + 1, chatIds[k].name || "Recipient", chatIds[k].chatId]);
+      }
+      
       return responseJSON({
         status: "success",
-        message: "Data uploaded successfully!",
+        message: "Data & Telegram config uploaded successfully!",
         count: entries.length
       });
     }
@@ -1484,6 +1500,8 @@ function doGet(e) {
     }
 
     var ss = SpreadsheetApp.getActiveSpreadsheet();
+    
+    // 1. Read Entries Sheet
     var entrySheet = ss.getSheetByName("Entries");
     var entries = [];
     if (entrySheet) {
@@ -1509,6 +1527,7 @@ function doGet(e) {
       }
     }
     
+    // 2. Read Accounts Sheet
     var acSheet = ss.getSheetByName("Accounts");
     var accounts = [];
     if (acSheet) {
@@ -1524,9 +1543,41 @@ function doGet(e) {
       }
     }
 
+    // 3. Read Telegram Bot Config Sheet
+    var tgSheet = ss.getSheetByName("Telegram");
+    var telegramData = { botToken: "", chatIds: [], enabled: true };
+    if (tgSheet) {
+      var tRows = tgSheet.getDataRange().getValues();
+      var startRecipients = false;
+      for (var m = 1; m < tRows.length; m++) {
+        var key = String(tRows[m][0]).trim();
+        var val = tRows[m][1];
+        if (key === "Bot Token") {
+          telegramData.botToken = String(val || "").trim();
+        } else if (key === "Notifications Enabled") {
+          telegramData.enabled = String(val).toUpperCase() === "YES";
+        } else if (key === "Sr" && String(val).trim() === "Recipient Name") {
+          startRecipients = true;
+          continue;
+        }
+
+        if (startRecipients && tRows[m][2]) {
+          telegramData.chatIds.push({
+            id: "cid_gs_" + m,
+            name: String(tRows[m][1] || "Recipient"),
+            chatId: String(tRows[m][2]).trim()
+          });
+        }
+      }
+    }
+
     return responseJSON({
       status: "success",
-      data: { entries: entries, accounts: accounts }
+      data: {
+        entries: entries,
+        accounts: accounts,
+        telegram: telegramData
+      }
     });
 
   } catch (err) {
@@ -2803,9 +2854,24 @@ function responseJSON(obj) {
             renderAccountsTable();
           }
 
-          statusEl.textContent = `✓ Token verified! Synced ${fetchedCount} entries safely.`;
+          // Sync Telegram Bot Configuration from Google Sheet
+          if (result.data.telegram) {
+            if (result.data.telegram.botToken) {
+              appState.settings.tgBotToken = result.data.telegram.botToken;
+            }
+            if (Array.isArray(result.data.telegram.chatIds) && result.data.telegram.chatIds.length > 0) {
+              appState.settings.tgChatIds = result.data.telegram.chatIds;
+            }
+            if (typeof result.data.telegram.enabled === "boolean") {
+              appState.settings.tgEnabled = result.data.telegram.enabled;
+            }
+            saveSettings();
+            updateSettingsUI();
+          }
+
+          statusEl.textContent = `✓ Token verified! Synced ${fetchedCount} entries & Telegram config safely.`;
           statusEl.style.color = "var(--success)";
-          showToast(`Token verified! Synced ${fetchedCount} entries from Google Sheet.`, "success");
+          showToast(`Token verified! Synced data & Telegram config from Google Sheet.`, "success");
         } else {
           throw new Error(result.message || "Invalid response from Google Sheets");
         }
@@ -2849,7 +2915,12 @@ function responseJSON(obj) {
         token: token,
         data: {
           entries: appState.entries,
-          accounts: appState.accounts
+          accounts: appState.accounts,
+          telegram: {
+            botToken: appState.settings.tgBotToken || "",
+            chatIds: appState.settings.tgChatIds || [],
+            enabled: appState.settings.tgEnabled !== false
+          }
         }
       };
 
