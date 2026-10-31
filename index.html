@@ -1399,8 +1399,19 @@ function doPost(e) {
     var ss = SpreadsheetApp.getActiveSpreadsheet();
     
     if (request.action === "upload") {
-      // 1. Entries Sheet
+      var entries = request.data.entries || [];
+      var accounts = request.data.accounts || [];
+
+      // 🛡️ Safety Block: Prevent wiping sheet if empty data is accidentally received from a new device
       var entrySheet = ss.getSheetByName("Entries") || ss.insertSheet("Entries");
+      if (entrySheet.getLastRow() > 1 && entries.length === 0 && !request.allowEmpty) {
+        return responseJSON({
+          status: "error",
+          message: "⚠️ Safety Block: Google Sheet already has data, but 0 entries were sent. Read data first to prevent data loss!"
+        });
+      }
+
+      // 1. Entries Sheet
       entrySheet.clearContents();
       entrySheet.appendRow([
         "Sr", "ID", "Type", "Date", "Account", "Pay In", "Pay Out", 
@@ -1699,6 +1710,11 @@ function responseJSON(obj) {
       renderHistoryTable();
       renderAccountsTable();
       renderTelegramChatIdsTable();
+
+      // Auto-fetch latest changes from Google Sheet on app open
+      if (appState.settings.gsheetUrl && appState.settings.gsheetToken && appState.settings.autoSyncGSheet !== false) {
+        syncWithGoogleSheet({ silent: true, isFetchOnly: true });
+      }
     });
 
     function loadState() {
@@ -2946,184 +2962,140 @@ function responseJSON(obj) {
       appState.settings.gsheetToken = token;
       appState.settings.autoSyncGSheet = autoSync;
       saveSettings();
-      showToast("Google Sheet configuration & token saved!", "success");
-      if (url && token && autoSync) {
-        triggerAutoSyncToGoogleSheet(100);
+      showToast("Google Sheet configuration saved! Connecting...", "info");
+
+      // STRICT RULE: When connecting or saving config, read existing data from Google Sheet first!
+      if (url && token) {
+        syncWithGoogleSheet({ isManual: true, isFetchOnly: true });
       }
     }
 
-    async function handleFetchFromGoogleSheet() {
-      const url = appState.settings.gsheetUrl || document.getElementById("gsheet-url").value.trim();
-      const token = appState.settings.gsheetToken || document.getElementById("gsheet-token").value.trim();
+    let isSyncInProgress = false;
+    let pendingSync = false;
 
-      if (!url) {
-        showToast("Please enter Google Web App URL first!", "error");
-        return;
+    // =========================================================================
+    // STRICT TWO-WAY SYNC RULE:
+    // ALWAYS read cloud data first, merge cleanly, and then upload!
+    // =========================================================================
+    async function syncWithGoogleSheet(options = {}) {
+      const { silent = false, isManual = false, isFetchOnly = false } = options;
+      const url = appState.settings.gsheetUrl || document.getElementById("gsheet-url")?.value.trim();
+      const token = appState.settings.gsheetToken || document.getElementById("gsheet-token")?.value.trim();
+
+      if (!url || !token) {
+        if (isManual) {
+          showToast("Please enter Google Web App URL & Security Token first!", "error");
+        }
+        return false;
       }
 
-      if (!token) {
-        showToast("Security Token is required! Please enter token in Settings.", "error");
+      if (isSyncInProgress) {
+        pendingSync = true;
         return;
       }
+      isSyncInProgress = true;
 
       const statusEl = document.getElementById("gsheet-status");
-      statusEl.textContent = "Verifying token & fetching data from Google Sheet...";
-      statusEl.style.color = "var(--primary)";
+      if (statusEl) {
+        statusEl.textContent = isFetchOnly ? "⬇️ Reading latest data from Google Sheet..." : "🔄 1/2 Reading Google Sheet first...";
+        statusEl.style.color = "var(--primary)";
+      }
 
       try {
+        // ---------------------------------------------------------------------
+        // STRICT STEP 1: READ / FETCH CLOUD DATA FROM GOOGLE SHEET FIRST
+        // ---------------------------------------------------------------------
         const fetchUrl = url + (url.includes("?") ? "&" : "?") + "action=fetch&token=" + encodeURIComponent(token);
-        const response = await fetch(fetchUrl);
-        const result = await response.json();
+        const fetchRes = await fetch(fetchUrl);
+        const fetchResult = await fetchRes.json();
 
-        if (result.status === "success" && result.data) {
-          let fetchedCount = 0;
-          if (Array.isArray(result.data.entries)) {
-            const sheetEntries = result.data.entries.map(e => ({
-              ...e,
-              date: normalizeDate(e.date)
-            }));
-
-            // Build unique identifier sets for sheet entries
-            const sheetIdSet = new Set(sheetEntries.map(e => e.id).filter(Boolean));
-            const sheetFps = new Set(sheetEntries.map(entryFingerprint));
-
-            // Retain any local entries that were created offline and not yet present in the sheet
-            const localOnly = appState.entries.filter(localE => {
-              if (localE.id && sheetIdSet.has(localE.id)) return false;
-              if (sheetFps.has(entryFingerprint(localE))) return false;
-              return true;
-            });
-
-            // Authoritative sheet entries first, followed by any new local entries
-            appState.entries = [...sheetEntries, ...localOnly];
-            saveEntries();
-            renderHistoryTable();
-            fetchedCount = sheetEntries.length;
-          }
-
-          if (Array.isArray(result.data.accounts) && result.data.accounts.length > 0) {
-            const sheetAcNames = new Set(result.data.accounts.map(a => (a.name || "").trim().toLowerCase()));
-            const mergedAccounts = [...result.data.accounts];
-
-            appState.accounts.forEach(localA => {
-              if (localA && localA.name && !sheetAcNames.has(localA.name.trim().toLowerCase())) {
-                mergedAccounts.push(localA);
-              }
-            });
-
-            appState.accounts = mergedAccounts;
-            saveAccounts();
-            populateAccountsDropdown();
-            renderAccountsTable();
-          }
-
-          // Sync Telegram Bot Configuration from Google Sheet
-          if (result.data.telegram) {
-            if (result.data.telegram.botToken) {
-              appState.settings.tgBotToken = result.data.telegram.botToken;
-            }
-            if (Array.isArray(result.data.telegram.chatIds) && result.data.telegram.chatIds.length > 0) {
-              appState.settings.tgChatIds = result.data.telegram.chatIds;
-            }
-            if (typeof result.data.telegram.enabled === "boolean") {
-              appState.settings.tgEnabled = result.data.telegram.enabled;
-            }
-            saveSettings();
-            updateSettingsUI();
-          }
-
-          statusEl.textContent = `✓ Fetched ${fetchedCount} entries cleanly without duplicates.`;
-          statusEl.style.color = "var(--success)";
-          showToast(`Fetched ${fetchedCount} entries cleanly from Google Sheet.`, "success");
-        } else {
-          throw new Error(result.message || "Invalid response from Google Sheets");
+        if (fetchResult.status !== "success" || !fetchResult.data) {
+          throw new Error(fetchResult.message || "Failed to read data from Google Sheet");
         }
-      } catch (err) {
-        console.error("GSheet fetch error:", err);
-        statusEl.textContent = "Fetch failed: " + err.message;
-        statusEl.style.color = "var(--danger)";
-        showToast("Fetch error: " + err.message, "error");
-      }
-    }
 
-    async function handleSafeUploadToGoogleSheet() {
-      const url = appState.settings.gsheetUrl || document.getElementById("gsheet-url").value.trim();
-      const token = appState.settings.gsheetToken || document.getElementById("gsheet-token").value.trim();
+        const cloudData = fetchResult.data;
 
-      if (!url) {
-        showToast("Please enter Google Web App URL first!", "error");
-        return;
-      }
+        // ---------------------------------------------------------------------
+        // STRICT STEP 2: MERGE CLOUD DATA WITH LOCAL DATA SAFELY (NEVER CLEAR)
+        // ---------------------------------------------------------------------
+        // A. Merge Entries
+        const sheetEntries = Array.isArray(cloudData.entries)
+          ? cloudData.entries.map(e => ({ ...e, date: normalizeDate(e.date) }))
+          : [];
 
-      if (!token) {
-        showToast("Security Token is required! Please enter token in Settings.", "error");
-        return;
-      }
+        const sheetIdSet = new Set(sheetEntries.map(e => e.id).filter(Boolean));
+        const sheetFps = new Set(sheetEntries.map(entryFingerprint));
 
-      // Safety Guard: Don't allow uploading if app is completely blank unless confirmed
-      if (appState.entries.length === 0 && appState.accounts.length === 0) {
-        const proceed = confirm("⚠️ WARNING: Your local app has 0 entries and 0 accounts!\n\nUploading now will clear your Google Sheet.\n\nClick 'Cancel' to fetch data from Google Sheet first.\nClick 'OK' only if you want to initialize or clear Google Sheet.");
-        if (!proceed) {
-          showToast("Upload cancelled.", "info");
-          return;
-        }
-      }
-
-      const statusEl = document.getElementById("gsheet-status");
-      statusEl.textContent = "Verifying token & uploading data...";
-      statusEl.style.color = "var(--primary)";
-
-      const payload = {
-        action: "upload",
-        token: token,
-        data: {
-          entries: appState.entries,
-          accounts: appState.accounts,
-          telegram: {
-            botToken: appState.settings.tgBotToken || "",
-            chatIds: appState.settings.tgChatIds || [],
-            enabled: appState.settings.tgEnabled !== false
-          }
-        }
-      };
-
-      try {
-        const response = await fetch(url, {
-          method: "POST",
-          headers: { "Content-Type": "text/plain;charset=utf-8" },
-          body: JSON.stringify(payload)
+        // Keep local entries that were created locally (e.g. offline) and not yet on sheet
+        const localNewEntries = appState.entries.filter(localE => {
+          if (localE.id && sheetIdSet.has(localE.id)) return false;
+          if (sheetFps.has(entryFingerprint(localE))) return false;
+          return true;
         });
 
-        const result = await response.json();
-        if (result.status === "success") {
-          statusEl.textContent = "✓ Token verified! Uploaded successfully.";
-          statusEl.style.color = "var(--success)";
-          showToast("Token verified! Data uploaded to Google Sheet successfully.", "success");
-        } else {
-          throw new Error(result.message || "Upload failed");
+        // Merged entries: local new entries on top + sheet entries (0 duplicates)
+        appState.entries = [...localNewEntries, ...sheetEntries];
+        saveEntries();
+
+        // B. Merge Accounts
+        const sheetAccounts = Array.isArray(cloudData.accounts) ? cloudData.accounts : [];
+        if (appState.accounts.length === 0 && sheetAccounts.length > 0) {
+          // If local device had 0 accounts (e.g. freshly opened Device 2), adopt all sheet accounts!
+          appState.accounts = sheetAccounts;
+        } else if (sheetAccounts.length > 0) {
+          const localAcMap = new Map();
+          appState.accounts.forEach(a => {
+            if (a && a.name) localAcMap.set(a.name.trim().toLowerCase(), a);
+          });
+          sheetAccounts.forEach(sa => {
+            if (sa && sa.name) {
+              const key = sa.name.trim().toLowerCase();
+              if (!localAcMap.has(key)) {
+                localAcMap.set(key, sa);
+              }
+            }
+          });
+          appState.accounts = Array.from(localAcMap.values());
         }
-      } catch (err) {
-        console.error("GSheet upload error:", err);
-        statusEl.textContent = "Upload failed: " + err.message;
-        statusEl.style.color = "var(--danger)";
-        showToast("Upload error: " + err.message, "error");
-      }
-    }
+        saveAccounts();
 
-    let autoSyncTimer = null;
+        // C. Merge Telegram Settings
+        if (cloudData.telegram) {
+          if (cloudData.telegram.botToken && !appState.settings.tgBotToken) {
+            appState.settings.tgBotToken = cloudData.telegram.botToken;
+          }
+          if (Array.isArray(cloudData.telegram.chatIds) && cloudData.telegram.chatIds.length > 0 && (!appState.settings.tgChatIds || appState.settings.tgChatIds.length === 0)) {
+            appState.settings.tgChatIds = cloudData.telegram.chatIds;
+          }
+          saveSettings();
+        }
 
-    function triggerAutoSyncToGoogleSheet(debounceMs = 600) {
-      const url = appState.settings.gsheetUrl;
-      const token = appState.settings.gsheetToken;
-      if (!url || !token) return;
-      if (appState.settings.autoSyncGSheet === false) return;
+        // Refresh all screen components so user immediately sees all cloud data
+        populateAccountsDropdown();
+        renderAccountsTable();
+        renderHistoryTable();
+        updateSettingsUI();
+        calculateAll();
+        updateTransferPreview();
 
-      if (autoSyncTimer) clearTimeout(autoSyncTimer);
+        // If caller requested fetch-only, we are done
+        if (isFetchOnly) {
+          const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+          if (statusEl) {
+            statusEl.textContent = `✓ Synced with Sheet at ${timeStr} (${sheetEntries.length} entries)`;
+            statusEl.style.color = "var(--success)";
+          }
+          if (!silent || isManual) {
+            showToast(`Synced ${sheetEntries.length} entries & accounts from Google Sheet!`, "success");
+          }
+          return true;
+        }
 
-      autoSyncTimer = setTimeout(async () => {
-        const statusEl = document.getElementById("gsheet-status");
+        // ---------------------------------------------------------------------
+        // STRICT STEP 3: UPLOAD THE COMPLETE MERGED STATE BACK TO GOOGLE SHEET
+        // ---------------------------------------------------------------------
         if (statusEl) {
-          statusEl.textContent = "☁️ Auto-syncing to Google Sheet...";
+          statusEl.textContent = "☁️ 2/2 Uploading merged data to Google Sheet...";
           statusEl.style.color = "var(--primary)";
         }
 
@@ -3141,34 +3113,70 @@ function responseJSON(obj) {
           }
         };
 
-        try {
-          const response = await fetch(url, {
-            method: "POST",
-            headers: { "Content-Type": "text/plain;charset=utf-8" },
-            body: JSON.stringify(payload)
-          });
+        const uploadRes = await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "text/plain;charset=utf-8" },
+          body: JSON.stringify(payload)
+        });
 
-          const result = await response.json();
-          if (result.status === "success") {
-            const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-            if (statusEl) {
-              statusEl.textContent = `✓ Auto-synced at ${timeStr}`;
-              statusEl.style.color = "var(--success)";
-            }
-            showToast("Google Sheet auto-synced ☁️", "success");
-          } else {
-            if (statusEl) {
-              statusEl.textContent = "Auto-sync error: " + (result.message || "Failed");
-              statusEl.style.color = "var(--danger)";
-            }
-          }
-        } catch (err) {
-          console.warn("Auto-sync to Google Sheet failed:", err);
-          if (statusEl) {
-            statusEl.textContent = "Auto-sync pending (network/offline)";
-            statusEl.style.color = "#d97706";
-          }
+        const uploadResult = await uploadRes.json();
+        if (uploadResult.status !== "success") {
+          throw new Error(uploadResult.message || "Upload failed");
         }
+
+        const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        if (statusEl) {
+          statusEl.textContent = `✓ Fully synced with Sheet at ${timeStr} (${appState.entries.length} entries)`;
+          statusEl.style.color = "var(--success)";
+        }
+
+        if (!silent || isManual) {
+          showToast(`Google Sheet synced! (${appState.entries.length} entries safe)`, "success");
+        }
+
+        return true;
+
+      } catch (err) {
+        console.error("Sync error:", err);
+        if (statusEl) {
+          statusEl.textContent = "Sync error: " + (err.message || "Failed");
+          statusEl.style.color = "var(--danger)";
+        }
+        if (isManual) {
+          showToast("Google Sheet error: " + err.message, "error");
+        }
+        return false;
+      } finally {
+        isSyncInProgress = false;
+        if (pendingSync) {
+          pendingSync = false;
+          setTimeout(() => syncWithGoogleSheet({ silent: true }), 400);
+        }
+      }
+    }
+
+    async function handleFetchFromGoogleSheet() {
+      await syncWithGoogleSheet({ isManual: true, isFetchOnly: true });
+    }
+
+    async function handleSafeUploadToGoogleSheet() {
+      // Under strict rule, uploading always reads first, merges, and then uploads
+      await syncWithGoogleSheet({ isManual: true, isFetchOnly: false });
+    }
+
+    let autoSyncTimer = null;
+
+    function triggerAutoSyncToGoogleSheet(debounceMs = 600) {
+      const url = appState.settings.gsheetUrl;
+      const token = appState.settings.gsheetToken;
+      if (!url || !token) return;
+      if (appState.settings.autoSyncGSheet === false) return;
+
+      if (autoSyncTimer) clearTimeout(autoSyncTimer);
+
+      autoSyncTimer = setTimeout(() => {
+        // STRICT RULE: auto-sync also reads first, merges, and then uploads!
+        syncWithGoogleSheet({ silent: true, isFetchOnly: false });
       }, debounceMs);
     }
 
