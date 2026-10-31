@@ -1030,21 +1030,20 @@
     <!-- TAB 3: SETTINGS -->
     <div id="tab-settings" class="tab-content">
 
-      <!-- 1. Ac Name & Bal Dropdown Settings -->
+      <!-- 1. Accounts -->
       <div class="card">
         <div class="card-header">
           <div class="card-title">
-            <span>1️⃣</span> Account Manager
+            <span>🏦</span> Account Manager
           </div>
-          <span class="badge badge-primary">Settings for Dropdown</span>
         </div>
 
         <!-- Add Form -->
-        <div style="background: #f8fafc; padding: 1.25rem; border-radius: 8px; border: 1px solid var(--border); margin-bottom: 1.5rem;">
+        <div style="background: #f8fafc; padding: 1.25rem; border-radius: 8px; border: 1px solid var(--border); margin-bottom: 1.25rem;">
           <div class="form-grid" style="grid-template-columns: 2fr 1.5fr auto; align-items: flex-end;">
             <div class="form-group">
               <label class="form-label" for="new-ac-name">Account Name</label>
-              <input type="text" id="new-ac-name" class="form-control" placeholder="e.g. Account 1 or Cash Box">
+              <input type="text" id="new-ac-name" class="form-control" placeholder="Account Name">
             </div>
             <div class="form-group">
               <label class="form-label" for="new-ac-bal">Opening Balance (₹)</label>
@@ -1052,7 +1051,7 @@
             </div>
             <div class="form-group">
               <button type="button" class="btn btn-primary" onclick="handleAddAccount()">
-                <span>➕</span> Add
+                <span>➕</span> Add Account
               </button>
             </div>
           </div>
@@ -1076,68 +1075,60 @@
         </div>
       </div>
 
-      <!-- 2. Extra Point Adjustment -->
+      <!-- 2. Extra Points -->
       <div class="card">
         <div class="card-header">
           <div class="card-title">
-            <span>2️⃣</span> Extra Point Adjustment
+            <span>🎯</span> Opening Point Balance
           </div>
-          <span class="badge badge-success">Adds to Opening Point Balance</span>
+          <div style="font-size: 0.88rem; color: var(--text-muted);">
+            Current: <strong id="settings-current-opening-display" style="color: var(--primary); font-size: 1.05rem;">0</strong>
+          </div>
         </div>
-        <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1.25rem;">
-          Current Prefilled Opening Point Balance: <strong id="settings-current-opening-display" style="color: var(--primary); font-size: 1.15rem;">0</strong>
-        </p>
 
         <div style="background: #f8fafc; padding: 1.25rem; border-radius: 8px; border: 1px solid var(--border);">
-          <div class="form-grid" style="grid-template-columns: 2fr auto; align-items: flex-end;">
-            <div class="form-group">
+          <div class="form-grid" style="grid-template-columns: 1fr 1fr; gap: 1rem;">
+            <div>
               <label class="form-label" for="extra-points-input">Add Extra Points</label>
-              <input type="number" step="any" id="extra-points-input" class="form-control" placeholder="Enter extra points to add">
+              <div style="display: flex; gap: 6px;">
+                <input type="number" step="any" id="extra-points-input" class="form-control" placeholder="Points to add">
+                <button type="button" class="btn btn-success" style="white-space: nowrap;" onclick="handleAddExtraPoints()">
+                  <span>➕</span> Add
+                </button>
+              </div>
             </div>
-            <div class="form-group">
-              <button type="button" class="btn btn-success" onclick="handleAddExtraPoints()">
-                <span>➕</span> Add to Opening Balance
-              </button>
+            <div>
+              <label class="form-label" for="direct-opening-input">Set Opening Points Directly</label>
+              <div style="display: flex; gap: 6px;">
+                <input type="number" step="any" id="direct-opening-input" class="form-control" placeholder="Direct value">
+                <button type="button" class="btn btn-secondary" style="white-space: nowrap;" onclick="handleDirectSetOpening()">
+                  Set
+                </button>
+              </div>
             </div>
-          </div>
-
-          <div style="margin-top: 1rem; padding-top: 0.85rem; border-top: 1px dashed var(--border); display: flex; gap: 0.65rem; align-items: center; flex-wrap: wrap;">
-            <span style="font-size: 0.82rem; color: var(--text-muted); font-weight: 600;">Or Directly Set Opening Point Balance:</span>
-            <input type="number" step="any" id="direct-opening-input" class="form-control" style="width: 150px; padding: 0.45rem 0.65rem;" placeholder="Direct value">
-            <button class="btn btn-sm btn-secondary" onclick="handleDirectSetOpening()">Set Directly</button>
           </div>
         </div>
       </div>
 
-      <!-- 3. Telegram Bot Notification Settings (Multi-Recipient Broadcast) -->
+      <!-- 3. Telegram Notifications -->
       <div class="card">
         <div class="card-header">
           <div class="card-title">
             <span>📢</span> Telegram Notification Bot
           </div>
-          <span class="badge badge-info">Multi-Recipient Broadcast</span>
         </div>
-        <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1.25rem;">
-          Configure your Telegram Bot token and add multiple Chat IDs (users, partners, groups) to broadcast automated ledger updates.
-        </p>
 
         <!-- Bot Token -->
         <div class="form-group" style="margin-bottom: 1.25rem;">
-          <label class="form-label" for="tg-bot-token">
-            Telegram Bot Token
-            <span class="badge badge-primary">Same Bot Token</span>
-          </label>
+          <label class="form-label" for="tg-bot-token">Telegram Bot Token</label>
           <div style="display: flex; gap: 4px;">
-            <input type="password" id="tg-bot-token" class="form-control" placeholder="e.g. 7123456789:AAHk123abc456def...">
+            <input type="password" id="tg-bot-token" class="form-control" placeholder="Enter Bot Token">
             <button type="button" class="btn btn-secondary btn-sm" onclick="toggleTokenVisibility('tg-bot-token')" title="Show/Hide Token" style="padding: 0 0.75rem;">👁️</button>
           </div>
         </div>
 
         <!-- Add Chat ID Form -->
         <div style="background: #f8fafc; padding: 1.1rem; border-radius: 8px; border: 1px solid var(--border); margin-bottom: 1.25rem;">
-          <label style="font-size: 0.88rem; font-weight: 700; color: #1e293b; display: block; margin-bottom: 0.6rem;">
-            ➕ Add Recipient Chat ID / Group ID:
-          </label>
           <div class="form-grid" style="grid-template-columns: 2fr 1.5fr auto; align-items: flex-end;">
             <div class="form-group">
               <label class="form-label" for="new-tg-chat-id">Chat ID / Channel ID</label>
@@ -1145,7 +1136,7 @@
             </div>
             <div class="form-group">
               <label class="form-label" for="new-tg-chat-name">Name / Remark (Optional)</label>
-              <input type="text" id="new-tg-chat-name" class="form-control" placeholder="e.g. Owner / Partner / Group">
+              <input type="text" id="new-tg-chat-name" class="form-control" placeholder="e.g. Owner / Partner">
             </div>
             <div class="form-group">
               <button type="button" class="btn btn-primary" onclick="handleAddTelegramChatId()">
@@ -1156,9 +1147,6 @@
         </div>
 
         <!-- Chat IDs Table -->
-        <label style="font-size: 0.85rem; font-weight: 700; color: #334155; margin-bottom: 0.5rem; display: block;">
-          Configured Telegram Recipients (<span id="tg-recipients-count">0</span>):
-        </label>
         <div class="table-responsive" style="margin-bottom: 1rem;">
           <table>
             <thead>
@@ -1184,16 +1172,16 @@
 
         <div class="actions-row" style="margin-top: 1.25rem;">
           <button type="button" class="btn btn-primary" onclick="handleSaveTelegramConfig()">
-            <span>💾</span> Save Telegram Config
+            <span>💾</span> Save Config
           </button>
           <button type="button" class="btn btn-secondary" onclick="handleSendTelegramTest()">
-            <span>🧪</span> Send Test Message to All
+            <span>🧪</span> Send Test Message
           </button>
           <span id="tg-status" style="font-size: 0.88rem; font-weight: 700; color: var(--text-muted);"></span>
         </div>
       </div>
 
-      <!-- 4. Google Sheet Connection (With Secret Token Protection) -->
+      <!-- 4. Google Sheet Connection -->
       <div class="card">
         <div class="card-header">
           <div class="card-title">
@@ -1203,16 +1191,6 @@
             <span>📋</span> View Apps Script Code
           </button>
         </div>
-        <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.85rem;">
-          Connect Google Sheet via Web App URL. <strong>Token Security:</strong> Google Sheet tabhi read ya write hogi jab Apps Script me dala hua secret token yahan match karega.
-        </p>
-
-        <div style="background: #eef2ff; border: 1px solid #c7d2fe; border-radius: 8px; padding: 0.75rem 1rem; margin-bottom: 1.25rem; font-size: 0.82rem; color: #3730a3; display: flex; align-items: flex-start; gap: 0.5rem;">
-          <span>🔒</span>
-          <div>
-            <strong>GitHub Public Hosting Safe:</strong> Aap ise GitHub par freely upload kar sakte hain. Aapka secret token aur Google Sheet URL sirf aapke personal browser ke storage me save rehte hain, code me hardcode nahi hote.
-          </div>
-        </div>
 
         <div class="form-grid" style="grid-template-columns: 1.8fr 1.2fr;">
           <div class="form-group">
@@ -1220,10 +1198,7 @@
             <input type="url" id="gsheet-url" class="form-control" placeholder="https://script.google.com/macros/s/.../exec">
           </div>
           <div class="form-group">
-            <label class="form-label" for="gsheet-token">
-              Security Token
-              <span class="badge badge-primary">Must Match Apps Script</span>
-            </label>
+            <label class="form-label" for="gsheet-token">Security Token</label>
             <div style="display: flex; gap: 4px;">
               <input type="password" id="gsheet-token" class="form-control" placeholder="Enter secret token">
               <button type="button" class="btn btn-secondary btn-sm" onclick="toggleTokenVisibility('gsheet-token')" title="Show/Hide Token" style="padding: 0 0.75rem;">👁️</button>
@@ -1236,26 +1211,22 @@
             <span>💾</span> Save Config
           </button>
           <button type="button" class="btn btn-success" onclick="handleFetchFromGoogleSheet()">
-            <span>⬇️</span> Fetch Data First
+            <span>⬇️</span> Fetch Data
           </button>
           <button type="button" class="btn btn-secondary" onclick="handleSafeUploadToGoogleSheet()">
-            <span>⬆️</span> Upload to Google Sheet
+            <span>⬆️</span> Upload to Sheet
           </button>
           <span id="gsheet-status" style="font-size: 0.88rem; font-weight: 700; color: var(--text-muted);"></span>
         </div>
       </div>
 
-      <!-- 5. Backup (JSON / Excel) -->
+      <!-- 5. Backup & Restore -->
       <div class="card">
         <div class="card-header">
           <div class="card-title">
-            <span>💾</span> Data Backup & Restore
+            <span>💾</span> Backup & Restore
           </div>
-          <span class="badge badge-primary">Offline Safe</span>
         </div>
-        <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1.25rem;">
-          Export and import complete backup of entries and accounts.
-        </p>
 
         <div class="actions-row" style="margin-top: 0;">
           <button type="button" class="btn btn-secondary" onclick="exportDataJSON()">
@@ -1398,7 +1369,7 @@
 // 🔐 GOOGLE APPS SCRIPT WITH TOKEN SECURITY FOR POINT & ACCOUNT LEDGER
 // =========================================================================
 
-// 🔴 APNA SECRET TOKEN YAHAN SET KAREIN (Change this to your strong password/token):
+// 🔴 APNA SECRET TOKEN YAHAN SET KAREIN:
 const SECRET_TOKEN = "MY_SECRET_TOKEN_123";
 
 function doPost(e) {
@@ -1425,25 +1396,52 @@ function doPost(e) {
       var entrySheet = ss.getSheetByName("Entries") || ss.insertSheet("Entries");
       entrySheet.clearContents();
       entrySheet.appendRow([
-        "Sr", "Date", "Account", "Pay In", "Pay Out", 
+        "Sr", "ID", "Type", "Date", "Account", "Pay In", "Pay Out", 
         "Opening Point Balance", "Closing Point Balance", "Points Profit", 
-        "Ac Balance", "Commission", "Exp"
+        "Ac Balance", "Commission", "Exp", "Rate Info", "Remark"
       ]);
       
       var entries = request.data.entries || [];
       for (var i = 0; i < entries.length; i++) {
         var row = entries[i];
+        var dateStr = "'" + (row.date || ""); // Prefix with ' to preserve literal text YYYY-MM-DD
+        
         if (row.type === "transfer") {
           entrySheet.appendRow([
-            i + 1, row.date, row.acName, "-", "-",
-            "-", "-", "Transfer",
-            row.acBalance, "-", "-"
+            i + 1,
+            row.id || ("tr_" + (i + 1)),
+            "transfer",
+            dateStr,
+            row.acName || "",
+            0,
+            0,
+            "-",
+            "-",
+            "Transfer",
+            row.acBalance || "",
+            0,
+            0,
+            "-",
+            row.remark || ""
           ]);
         } else {
+          var rateStr = (row.rateToggle && row.rate) ? ("Rate: " + row.rate + " | Profit: " + (row.rateProfitVal || 0)) : "-";
           entrySheet.appendRow([
-            i + 1, row.date, row.acName, row.payIn, row.payOut,
-            row.openingPointBal, row.closingPointBal, row.pointsProfit,
-            row.acBalance, row.commission, row.exp
+            i + 1,
+            row.id || ("entry_" + (i + 1)),
+            "entry",
+            dateStr,
+            row.acName || "",
+            Number(row.payIn) || 0,
+            Number(row.payOut) || 0,
+            Number(row.openingPointBal) || 0,
+            Number(row.closingPointBal) || 0,
+            Number(row.pointsProfit) || 0,
+            row.acBalance || 0,
+            Number(row.commission) || 0,
+            Number(row.exp) || 0,
+            rateStr,
+            row.remark || ""
           ]);
         }
       }
@@ -1454,10 +1452,14 @@ function doPost(e) {
       acSheet.appendRow(["ID", "Account Name", "Current Balance"]);
       var accounts = request.data.accounts || [];
       for (var j = 0; j < accounts.length; j++) {
-        acSheet.appendRow([accounts[j].id, accounts[j].name, accounts[j].balance]);
+        acSheet.appendRow([
+          accounts[j].id || ("ac_" + (j + 1)),
+          accounts[j].name || "",
+          Number(accounts[j].balance) || 0
+        ]);
       }
       
-      // 3. Telegram Bot Config & Recipients Sheet
+      // 3. Telegram Sheet
       var tgSheet = ss.getSheetByName("Telegram") || ss.insertSheet("Telegram");
       tgSheet.clearContents();
       tgSheet.appendRow(["Configuration", "Value"]);
@@ -1465,17 +1467,17 @@ function doPost(e) {
       var tgData = request.data.telegram || {};
       tgSheet.appendRow(["Bot Token", tgData.botToken || ""]);
       tgSheet.appendRow(["Notifications Enabled", tgData.enabled !== false ? "YES" : "NO"]);
-      tgSheet.appendRow(["", ""]); // separator row
+      tgSheet.appendRow(["---", "---"]);
       tgSheet.appendRow(["Sr", "Recipient Name", "Chat ID"]);
       
       var chatIds = tgData.chatIds || [];
       for (var k = 0; k < chatIds.length; k++) {
-        tgSheet.appendRow([k + 1, chatIds[k].name || "Recipient", chatIds[k].chatId]);
+        tgSheet.appendRow([k + 1, chatIds[k].name || "Recipient", String(chatIds[k].chatId || "")]);
       }
       
       return responseJSON({
         status: "success",
-        message: "Data & Telegram config uploaded successfully!",
+        message: "Data uploaded successfully without duplicates!",
         count: entries.length
       });
     }
@@ -1504,39 +1506,72 @@ function doGet(e) {
     // 1. Read Entries Sheet
     var entrySheet = ss.getSheetByName("Entries");
     var entries = [];
-    if (entrySheet) {
+    if (entrySheet && entrySheet.getLastRow() > 1) {
       var rows = entrySheet.getDataRange().getValues();
+      var headers = rows[0] || [];
+      var isNewFormat = String(headers[1] || "").trim().toUpperCase() === "ID";
+
       for (var i = 1; i < rows.length; i++) {
         var r = rows[i];
-        if (!r[1]) continue;
-        var isTransfer = String(r[7]).toLowerCase().indexOf("transfer") !== -1;
-        entries.push({
-          id: "gs_" + i,
-          type: isTransfer ? "transfer" : "entry",
-          date: r[1],
-          acName: r[2],
-          payIn: isTransfer ? 0 : (Number(r[3]) || 0),
-          payOut: isTransfer ? 0 : (Number(r[4]) || 0),
-          openingPointBal: isTransfer ? 0 : (Number(r[5]) || 0),
-          closingPointBal: isTransfer ? 0 : (Number(r[6]) || 0),
-          pointsProfit: isTransfer ? 0 : (Number(r[7]) || 0),
-          acBalance: r[8],
-          commission: isTransfer ? 0 : (Number(r[9]) || 0),
-          exp: isTransfer ? 0 : (Number(r[10]) || 0)
-        });
+        if (isNewFormat) {
+          if (!r[1] && !r[3]) continue;
+          var idVal = String(r[1] || ("gs_" + i));
+          var typeVal = String(r[2] || "entry").toLowerCase();
+          var dateVal = formatCellDate(r[3]);
+          var acNameVal = String(r[4] || "");
+          var isTransfer = typeVal === "transfer" || String(r[9]).toLowerCase().indexOf("transfer") !== -1;
+
+          entries.push({
+            id: idVal,
+            type: isTransfer ? "transfer" : "entry",
+            date: dateVal,
+            acName: acNameVal,
+            payIn: isTransfer ? 0 : (Number(r[5]) || 0),
+            payOut: isTransfer ? 0 : (Number(r[6]) || 0),
+            openingPointBal: isTransfer ? "-" : (Number(r[7]) || 0),
+            closingPointBal: isTransfer ? "-" : (Number(r[8]) || 0),
+            pointsProfit: isTransfer ? 0 : (Number(r[9]) || 0),
+            acBalance: r[10],
+            commission: isTransfer ? 0 : (Number(r[11]) || 0),
+            exp: isTransfer ? 0 : (Number(r[12]) || 0),
+            remark: String(r[14] || "")
+          });
+        } else {
+          // Legacy format fallback: ["Sr", "Date", "Account", "Pay In", "Pay Out", ...]
+          if (!r[1]) continue;
+          var dateVal = formatCellDate(r[1]);
+          var acNameVal = String(r[2] || "");
+          var isTransfer = String(r[7]).toLowerCase().indexOf("transfer") !== -1;
+
+          entries.push({
+            id: "gs_" + i,
+            type: isTransfer ? "transfer" : "entry",
+            date: dateVal,
+            acName: acNameVal,
+            payIn: isTransfer ? 0 : (Number(r[3]) || 0),
+            payOut: isTransfer ? 0 : (Number(r[4]) || 0),
+            openingPointBal: isTransfer ? "-" : (Number(r[5]) || 0),
+            closingPointBal: isTransfer ? "-" : (Number(r[6]) || 0),
+            pointsProfit: isTransfer ? 0 : (Number(r[7]) || 0),
+            acBalance: r[8],
+            commission: isTransfer ? 0 : (Number(r[9]) || 0),
+            exp: isTransfer ? 0 : (Number(r[10]) || 0),
+            remark: ""
+          });
+        }
       }
     }
     
     // 2. Read Accounts Sheet
     var acSheet = ss.getSheetByName("Accounts");
     var accounts = [];
-    if (acSheet) {
+    if (acSheet && acSheet.getLastRow() > 1) {
       var aRows = acSheet.getDataRange().getValues();
       for (var j = 1; j < aRows.length; j++) {
         if (aRows[j][1]) {
           accounts.push({
-            id: String(aRows[j][0]) || ("ac_" + j),
-            name: aRows[j][1],
+            id: String(aRows[j][0] || ("ac_" + j)),
+            name: String(aRows[j][1]).trim(),
             balance: Number(aRows[j][2]) || 0
           });
         }
@@ -1546,7 +1581,7 @@ function doGet(e) {
     // 3. Read Telegram Bot Config Sheet
     var tgSheet = ss.getSheetByName("Telegram");
     var telegramData = { botToken: "", chatIds: [], enabled: true };
-    if (tgSheet) {
+    if (tgSheet && tgSheet.getLastRow() > 1) {
       var tRows = tgSheet.getDataRange().getValues();
       var startRecipients = false;
       for (var m = 1; m < tRows.length; m++) {
@@ -1564,7 +1599,7 @@ function doGet(e) {
         if (startRecipients && tRows[m][2]) {
           telegramData.chatIds.push({
             id: "cid_gs_" + m,
-            name: String(tRows[m][1] || "Recipient"),
+            name: String(tRows[m][1] || "Recipient").trim(),
             chatId: String(tRows[m][2]).trim()
           });
         }
@@ -1583,6 +1618,21 @@ function doGet(e) {
   } catch (err) {
     return responseJSON({ status: "error", message: err.toString() });
   }
+}
+
+function formatCellDate(val) {
+  if (!val) return "";
+  if (val instanceof Date) {
+    var year = val.getFullYear();
+    var month = ("0" + (val.getMonth() + 1)).slice(-2);
+    var day = ("0" + val.getDate()).slice(-2);
+    return year + "-" + month + "-" + day;
+  }
+  var s = String(val).trim();
+  if (s.indexOf("T") !== -1) {
+    return s.split("T")[0];
+  }
+  return s;
 }
 
 function responseJSON(obj) {
@@ -1651,38 +1701,30 @@ function responseJSON(obj) {
 
         if (savedAccounts) {
           appState.accounts = JSON.parse(savedAccounts);
-        } else {
-          // Migration from previous v2 if exists
-          const oldAc = localStorage.getItem("pt_ledger_accounts_v2");
-          if (oldAc) {
-            appState.accounts = JSON.parse(oldAc);
-          } else {
-            appState.accounts = [
-              { id: "ac_1", name: "Account 1", balance: 10000 },
-              { id: "ac_2", name: "Account 2", balance: 5000 }
-            ];
+          // If user had the old default dummy accounts and no real entries, clean them up to zero
+          if (
+            appState.accounts.length === 2 &&
+            appState.accounts[0].name === "Account 1" && Number(appState.accounts[0].balance) === 10000 &&
+            appState.accounts[1].name === "Account 2" && Number(appState.accounts[1].balance) === 5000 &&
+            (!savedEntries || JSON.parse(savedEntries).length === 0)
+          ) {
+            appState.accounts = [];
+            saveAccounts();
           }
+        } else {
+          appState.accounts = [];
           saveAccounts();
         }
 
         if (savedEntries) {
           appState.entries = JSON.parse(savedEntries);
         } else {
-          const oldEn = localStorage.getItem("pt_ledger_entries_v2");
-          if (oldEn) {
-            appState.entries = JSON.parse(oldEn);
-            saveEntries();
-          }
+          appState.entries = [];
+          saveEntries();
         }
 
         if (savedSettings) {
           appState.settings = Object.assign(appState.settings, JSON.parse(savedSettings));
-        } else {
-          const oldSt = localStorage.getItem("pt_ledger_settings_v2");
-          if (oldSt) {
-            appState.settings = Object.assign(appState.settings, JSON.parse(oldSt));
-            saveSettings();
-          }
         }
 
         // Migrate single tgChatId to tgChatIds array if needed
@@ -1757,6 +1799,18 @@ function responseJSON(obj) {
         opt.value = "";
         opt.textContent = "-- No accounts found. Add in Settings --";
         if (select) select.appendChild(opt);
+        if (fromAcSelect) {
+          const fOpt = document.createElement("option");
+          fOpt.value = "";
+          fOpt.textContent = "-- No accounts found --";
+          fromAcSelect.appendChild(fOpt);
+        }
+        if (toAcSelect) {
+          const tOpt = document.createElement("option");
+          tOpt.value = "";
+          tOpt.textContent = "-- No accounts found --";
+          toAcSelect.appendChild(tOpt);
+        }
         return;
       }
 
@@ -1994,7 +2048,11 @@ function responseJSON(obj) {
       // 4. Send Telegram Notification if configured
       const hasRecipients = (Array.isArray(appState.settings.tgChatIds) && appState.settings.tgChatIds.length > 0) || !!appState.settings.tgChatId;
       if (appState.settings.tgEnabled !== false && appState.settings.tgBotToken && hasRecipients) {
-        sendTelegramNotificationForEntry(newEntry);
+        try {
+          await sendTelegramNotificationForEntry(newEntry);
+        } catch (tgErr) {
+          console.warn("Telegram notification error:", tgErr);
+        }
       }
     }
 
@@ -2104,7 +2162,11 @@ function responseJSON(obj) {
       // 4. Send Telegram Notification if configured
       const hasTransferRecipients = (Array.isArray(appState.settings.tgChatIds) && appState.settings.tgChatIds.length > 0) || !!appState.settings.tgChatId;
       if (appState.settings.tgEnabled !== false && appState.settings.tgBotToken && hasTransferRecipients) {
-        sendTelegramNotificationForTransfer(transferEntry, fromAc, toAc);
+        try {
+          await sendTelegramNotificationForTransfer(transferEntry, fromAc, toAc);
+        } catch (tgErr) {
+          console.warn("Telegram transfer alert error:", tgErr);
+        }
       }
     }
 
@@ -2630,9 +2692,12 @@ function responseJSON(obj) {
       let failedCount = 0;
       let lastError = "";
 
+      const plainText = stripHtml(msgHtml);
+
       const promises = recipients.map(async (r) => {
         try {
-          const res = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+          // Attempt 1: HTML parse mode
+          let res = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -2641,7 +2706,21 @@ function responseJSON(obj) {
               parse_mode: "HTML"
             })
           });
-          const data = await res.json();
+          let data = await res.json();
+
+          // Fallback Attempt 2: Plain text mode if HTML parsing fails
+          if (!data.ok) {
+            res = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                chat_id: r.chatId,
+                text: plainText
+              })
+            });
+            data = await res.json();
+          }
+
           if (data.ok) {
             successCount++;
           } else {
@@ -2649,6 +2728,22 @@ function responseJSON(obj) {
             lastError = data.description || "API error";
           }
         } catch (err) {
+          // Network retry attempt with plain text
+          try {
+            const retryRes = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                chat_id: r.chatId,
+                text: plainText
+              })
+            });
+            const retryData = await retryRes.json();
+            if (retryData.ok) {
+              successCount++;
+              return;
+            }
+          } catch (e2) {}
           failedCount++;
           lastError = err.message;
         }
@@ -2726,7 +2821,7 @@ function responseJSON(obj) {
         `━━━━━━━━━━━━━━━━━━\n` +
         `📝 <b><u>NEW ENTRY SAVED</u></b>\n` +
         `📅 <b>Date:</b> ${entry.date}\n` +
-        `🏦 <b>Account:</b> ${entry.acName}\n` +
+        `🏦 <b>Account:</b> ${tgEscape(entry.acName)}\n` +
         `📥 <b>Pay In:</b> ₹${formatNumber(entry.payIn)} (Comm 4%: ₹${formatNumber(entry.payInComm || 0)})\n` +
         `📤 <b>Pay Out:</b> ₹${formatNumber(entry.payOut)} (Comm 1%: ₹${formatNumber(entry.payOutComm || 0)})\n` +
         `🎯 <b>Opening Points:</b> ${formatNumber(entry.openingPointBal)}\n` +
@@ -2742,6 +2837,8 @@ function responseJSON(obj) {
       const res = await sendTelegramNotificationToAll(msg);
       if (res && res.success > 0) {
         showToast(`Telegram notification sent to ${res.success} recipient(s) ✅`, "info");
+      } else if (res && res.failed > 0 && res.success === 0) {
+        showToast(`Telegram notification failed: ${res.lastError}`, "error");
       }
     }
 
@@ -2761,16 +2858,18 @@ function responseJSON(obj) {
         `━━━━━━━━━━━━━━━━━━\n` +
         `🔁 <b><u>ACCOUNT TO ACCOUNT TRANSFER</u></b>\n` +
         `📅 <b>Date:</b> ${entry.date}\n` +
-        `📤 <b>From:</b> ${fromAc.name} (Bal: ₹${formatNumber(fromAc.balance)})\n` +
-        `📥 <b>To:</b> ${toAc.name} (Bal: ₹${formatNumber(toAc.balance)})\n` +
+        `📤 <b>From:</b> ${tgEscape(fromAc.name)} (Bal: ₹${formatNumber(fromAc.balance)})\n` +
+        `📥 <b>To:</b> ${tgEscape(toAc.name)} (Bal: ₹${formatNumber(toAc.balance)})\n` +
         `💵 <b>Amount Transferred:</b> ₹${formatNumber(entry.amount)}\n` +
-        (entry.remark ? `📝 <b>Remark:</b> ${entry.remark}\n` : '') +
+        (entry.remark ? `📝 <b>Remark:</b> ${tgEscape(entry.remark)}\n` : '') +
         `━━━━━━━━━━━━━━━━━━\n` +
         `⏰ <i>${new Date().toLocaleString()}</i>`;
 
       const res = await sendTelegramNotificationToAll(msg);
       if (res && res.success > 0) {
         showToast(`Telegram transfer alert sent to ${res.success} recipient(s) ✅`, "info");
+      } else if (res && res.failed > 0 && res.success === 0) {
+        showToast(`Telegram transfer alert failed: ${res.lastError}`, "error");
       }
     }
 
@@ -2834,29 +2933,41 @@ function responseJSON(obj) {
 
         if (result.status === "success" && result.data) {
           let fetchedCount = 0;
-          if (Array.isArray(result.data.entries) && result.data.entries.length > 0) {
-            // Merge with local state to prevent losing any local records
-            const existingIds = new Set(appState.entries.map(e => e.date + "_" + e.acName + "_" + e.payIn + "_" + e.payOut));
-            result.data.entries.forEach(r => {
-              const key = r.date + "_" + r.acName + "_" + r.payIn + "_" + r.payOut;
-              if (!existingIds.has(key)) {
-                appState.entries.push(r);
-                existingIds.add(key);
-              }
+          if (Array.isArray(result.data.entries)) {
+            const sheetEntries = result.data.entries.map(e => ({
+              ...e,
+              date: normalizeDate(e.date)
+            }));
+
+            // Build unique identifier sets for sheet entries
+            const sheetIdSet = new Set(sheetEntries.map(e => e.id).filter(Boolean));
+            const sheetFps = new Set(sheetEntries.map(entryFingerprint));
+
+            // Retain any local entries that were created offline and not yet present in the sheet
+            const localOnly = appState.entries.filter(localE => {
+              if (localE.id && sheetIdSet.has(localE.id)) return false;
+              if (sheetFps.has(entryFingerprint(localE))) return false;
+              return true;
             });
+
+            // Authoritative sheet entries first, followed by any new local entries
+            appState.entries = [...sheetEntries, ...localOnly];
             saveEntries();
             renderHistoryTable();
-            fetchedCount = result.data.entries.length;
+            fetchedCount = sheetEntries.length;
           }
 
           if (Array.isArray(result.data.accounts) && result.data.accounts.length > 0) {
-            const existingAcNames = new Set(appState.accounts.map(a => a.name));
-            result.data.accounts.forEach(a => {
-              if (!existingAcNames.has(a.name)) {
-                appState.accounts.push(a);
-                existingAcNames.add(a.name);
+            const sheetAcNames = new Set(result.data.accounts.map(a => (a.name || "").trim().toLowerCase()));
+            const mergedAccounts = [...result.data.accounts];
+
+            appState.accounts.forEach(localA => {
+              if (localA && localA.name && !sheetAcNames.has(localA.name.trim().toLowerCase())) {
+                mergedAccounts.push(localA);
               }
             });
+
+            appState.accounts = mergedAccounts;
             saveAccounts();
             populateAccountsDropdown();
             renderAccountsTable();
@@ -2877,9 +2988,9 @@ function responseJSON(obj) {
             updateSettingsUI();
           }
 
-          statusEl.textContent = `✓ Token verified! Synced ${fetchedCount} entries & Telegram config safely.`;
+          statusEl.textContent = `✓ Fetched ${fetchedCount} entries cleanly without duplicates.`;
           statusEl.style.color = "var(--success)";
-          showToast(`Token verified! Synced data & Telegram config from Google Sheet.`, "success");
+          showToast(`Fetched ${fetchedCount} entries cleanly from Google Sheet.`, "success");
         } else {
           throw new Error(result.message || "Invalid response from Google Sheets");
         }
@@ -2905,11 +3016,11 @@ function responseJSON(obj) {
         return;
       }
 
-      // Safety Guard: Don't allow uploading 0 entries if user hasn't fetched first!
-      if (appState.entries.length === 0) {
-        const proceed = confirm("⚠️ WARNING: Your local browser has 0 entries!\n\nUploading now will overwrite your Google Sheet with empty data.\n\nClick 'Cancel' to fetch data from Google Sheet first.\nClick 'OK' only if you want to clear Google Sheet.");
+      // Safety Guard: Don't allow uploading if app is completely blank unless confirmed
+      if (appState.entries.length === 0 && appState.accounts.length === 0) {
+        const proceed = confirm("⚠️ WARNING: Your local app has 0 entries and 0 accounts!\n\nUploading now will clear your Google Sheet.\n\nClick 'Cancel' to fetch data from Google Sheet first.\nClick 'OK' only if you want to initialize or clear Google Sheet.");
         if (!proceed) {
-          showToast("Upload cancelled. Please click 'Fetch Data First'.", "info");
+          showToast("Upload cancelled.", "info");
           return;
         }
       }
@@ -3131,9 +3242,16 @@ function responseJSON(obj) {
       localStorage.removeItem(STORAGE_KEY_SETTINGS);
 
       appState = {
-        accounts: [{ id: "ac_1", name: "Account 1", balance: 10000 }],
+        accounts: [],
         entries: [],
-        settings: { prefilledOpeningPointBal: 0, gsheetUrl: "", gsheetToken: "", tgBotToken: "", tgChatId: "", tgEnabled: true }
+        settings: {
+          prefilledOpeningPointBal: 0,
+          gsheetUrl: "",
+          gsheetToken: "",
+          tgBotToken: "",
+          tgChatIds: [],
+          tgEnabled: true
+        }
       };
 
       saveAccounts();
@@ -3147,7 +3265,41 @@ function responseJSON(obj) {
       calculateAll();
       updateTransferPreview();
 
-      showToast("All data reset to defaults.", "info");
+      showToast("All data reset to clean zero state.", "info");
+    }
+
+    function normalizeDate(d) {
+      if (!d) return "";
+      const s = String(d).trim();
+      if (s.includes("T")) return s.split("T")[0];
+      return s;
+    }
+
+    function entryFingerprint(e) {
+      const normDate = normalizeDate(e.date);
+      const ac = String(e.acName || "").trim().toLowerCase();
+      const pi = Number(e.payIn) || 0;
+      const po = Number(e.payOut) || 0;
+      const op = Number(e.openingPointBal) || 0;
+      const cl = Number(e.closingPointBal) || 0;
+      const amt = Number(e.amount) || 0;
+      return `${normDate}|${ac}|${pi}|${po}|${op}|${cl}|${amt}`;
+    }
+
+    function tgEscape(val) {
+      if (val === null || val === undefined) return "";
+      return String(val)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;");
+    }
+
+    function stripHtml(html) {
+      return String(html || "")
+        .replace(/<[^>]*>/g, "")
+        .replace(/&amp;/g, "&")
+        .replace(/&lt;/g, "<")
+        .replace(/&gt;/g, ">");
     }
 
     function formatNumber(num) {
