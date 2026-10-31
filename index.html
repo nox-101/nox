@@ -1672,10 +1672,13 @@ function responseJSON(obj) {
     const STORAGE_KEY_ACCOUNTS = "pt_ledger_accounts_v3";
     const STORAGE_KEY_ENTRIES = "pt_ledger_entries_v3";
     const STORAGE_KEY_SETTINGS = "pt_ledger_settings_v3";
+    const STORAGE_KEY_DELETED = "pt_ledger_deleted_v3";
 
     let appState = {
       accounts: [],
       entries: [],
+      deletedEntryIds: [],
+      deletedAccountNames: [],
       settings: {
         prefilledOpeningPointBal: 0,
         gsheetUrl: "",
@@ -1713,7 +1716,7 @@ function responseJSON(obj) {
 
       // Auto-fetch latest changes from Google Sheet on app open
       if (appState.settings.gsheetUrl && appState.settings.gsheetToken && appState.settings.autoSyncGSheet !== false) {
-        syncWithGoogleSheet({ silent: true, isFetchOnly: true });
+        fetchFromGoogleSheet({ silent: true });
       }
     });
 
@@ -1722,6 +1725,7 @@ function responseJSON(obj) {
         const savedAccounts = localStorage.getItem(STORAGE_KEY_ACCOUNTS);
         const savedEntries = localStorage.getItem(STORAGE_KEY_ENTRIES);
         const savedSettings = localStorage.getItem(STORAGE_KEY_SETTINGS);
+        const savedDeleted = localStorage.getItem(STORAGE_KEY_DELETED);
 
         if (savedAccounts) {
           appState.accounts = JSON.parse(savedAccounts);
@@ -1751,6 +1755,17 @@ function responseJSON(obj) {
           appState.settings = Object.assign(appState.settings, JSON.parse(savedSettings));
         }
 
+        if (savedDeleted) {
+          try {
+            const d = JSON.parse(savedDeleted);
+            appState.deletedEntryIds = d.entries || [];
+            appState.deletedAccountNames = d.accounts || [];
+          } catch (e) {}
+        } else {
+          appState.deletedEntryIds = [];
+          appState.deletedAccountNames = [];
+        }
+
         // Migrate single tgChatId to tgChatIds array if needed
         if (!Array.isArray(appState.settings.tgChatIds)) {
           if (appState.settings.tgChatId) {
@@ -1774,6 +1789,13 @@ function responseJSON(obj) {
 
     function saveSettings() {
       localStorage.setItem(STORAGE_KEY_SETTINGS, JSON.stringify(appState.settings));
+    }
+
+    function saveDeleted() {
+      localStorage.setItem(STORAGE_KEY_DELETED, JSON.stringify({
+        entries: appState.deletedEntryIds,
+        accounts: appState.deletedAccountNames
+      }));
     }
 
     function switchTab(tabName) {
@@ -2360,11 +2382,18 @@ function responseJSON(obj) {
         return;
       }
 
+      // Record tombstone so this entry can NEVER resurrect from any cloud fetch
+      if (!Array.isArray(appState.deletedEntryIds)) appState.deletedEntryIds = [];
+      appState.deletedEntryIds.push(id);
+      saveDeleted();
+
       appState.entries = appState.entries.filter(e => e.id !== id);
       saveEntries();
       renderHistoryTable();
-      triggerAutoSyncToGoogleSheet();
-      showToast("Entry deleted successfully.", "info");
+
+      // Push updated state to Google Sheet directly
+      pushStateToGoogleSheet({ silent: true });
+      showToast("Entry deleted permanently.", "info");
     }
 
     function handleDeleteTransfer(id) {
@@ -2384,11 +2413,18 @@ function responseJSON(obj) {
         renderAccountsTable();
       }
 
+      // Record tombstone
+      if (!Array.isArray(appState.deletedEntryIds)) appState.deletedEntryIds = [];
+      appState.deletedEntryIds.push(id);
+      saveDeleted();
+
       appState.entries = appState.entries.filter(e => e.id !== id);
       saveEntries();
       renderHistoryTable();
-      triggerAutoSyncToGoogleSheet();
-      showToast("Transfer removed.", "info");
+
+      // Push updated state to Google Sheet directly
+      pushStateToGoogleSheet({ silent: true });
+      showToast("Transfer removed permanently.", "info");
     }
 
     function openEditEntryModal(id) {
@@ -2493,6 +2529,12 @@ function responseJSON(obj) {
       appState.accounts.push(newAc);
       saveAccounts();
 
+      // If this account name was previously in deletedAccountNames, un-delete it
+      if (Array.isArray(appState.deletedAccountNames)) {
+        appState.deletedAccountNames = appState.deletedAccountNames.filter(n => n.toLowerCase() !== name.toLowerCase());
+        saveDeleted();
+      }
+
       nameInput.value = "";
       balInput.value = "";
 
@@ -2578,13 +2620,20 @@ function responseJSON(obj) {
         return;
       }
 
+      // Record tombstone so this account can NEVER resurrect from any cloud fetch
+      if (!Array.isArray(appState.deletedAccountNames)) appState.deletedAccountNames = [];
+      appState.deletedAccountNames.push(ac.name);
+      saveDeleted();
+
       appState.accounts = appState.accounts.filter(a => a.id !== id);
       saveAccounts();
       renderAccountsTable();
       populateAccountsDropdown();
       calculateAll();
-      triggerAutoSyncToGoogleSheet();
-      showToast(`Account "${ac.name}" deleted.`, "info");
+
+      // Push updated state to Google Sheet directly
+      pushStateToGoogleSheet({ silent: true });
+      showToast(`Account "${ac.name}" deleted permanently.`, "info");
     }
 
     // SETTINGS: Extra Points
@@ -2952,7 +3001,7 @@ function responseJSON(obj) {
       }
     }
 
-    // SETTINGS: Google Sheets Integration with Fetch-Before-Upload Protection & Strict Token Security
+    // SETTINGS: Google Sheets Integration with Permanent Delete & Multi-Device Protection
     function handleSaveGSheetConfig() {
       const url = document.getElementById("gsheet-url").value.trim();
       const token = document.getElementById("gsheet-token").value.trim();
@@ -2964,21 +3013,29 @@ function responseJSON(obj) {
       saveSettings();
       showToast("Google Sheet configuration saved! Connecting...", "info");
 
-      // STRICT RULE: When connecting or saving config, read existing data from Google Sheet first!
+      // On new connect or saving config, fetch existing cloud data to safely populate this device!
       if (url && token) {
-        syncWithGoogleSheet({ isManual: true, isFetchOnly: true });
+        fetchFromGoogleSheet({ isManual: true });
       }
     }
 
-    let isSyncInProgress = false;
-    let pendingSync = false;
+    let isPushing = false;
+    let pushDebounceTimer = null;
 
-    // =========================================================================
-    // STRICT TWO-WAY SYNC RULE:
-    // ALWAYS read cloud data first, merge cleanly, and then upload!
-    // =========================================================================
-    async function syncWithGoogleSheet(options = {}) {
-      const { silent = false, isManual = false, isFetchOnly = false } = options;
+    function triggerAutoSyncToGoogleSheet(debounceMs = 500) {
+      const url = appState.settings.gsheetUrl;
+      const token = appState.settings.gsheetToken;
+      if (!url || !token) return;
+      if (appState.settings.autoSyncGSheet === false) return;
+
+      if (pushDebounceTimer) clearTimeout(pushDebounceTimer);
+      pushDebounceTimer = setTimeout(() => {
+        pushStateToGoogleSheet({ silent: true });
+      }, debounceMs);
+    }
+
+    async function pushStateToGoogleSheet(options = {}) {
+      const { silent = false, isManual = false } = options;
       const url = appState.settings.gsheetUrl || document.getElementById("gsheet-url")?.value.trim();
       const token = appState.settings.gsheetToken || document.getElementById("gsheet-token")?.value.trim();
 
@@ -2989,116 +3046,27 @@ function responseJSON(obj) {
         return false;
       }
 
-      if (isSyncInProgress) {
-        pendingSync = true;
-        return;
+      // Safety check: if app is completely blank (0 entries & 0 accounts), prevent auto-wiping cloud
+      if (appState.entries.length === 0 && appState.accounts.length === 0) {
+        if (isManual) {
+          const confirmClear = confirm("⚠️ Your app is currently completely empty.\n\nUploading now will clear the Google Sheet.\n\nAre you sure you want to clear Google Sheet?");
+          if (!confirmClear) return false;
+        } else {
+          console.warn("Safety block: Refusing to auto-push empty state to Google Sheet.");
+          return false;
+        }
       }
-      isSyncInProgress = true;
+
+      if (isPushing) return false;
+      isPushing = true;
 
       const statusEl = document.getElementById("gsheet-status");
       if (statusEl) {
-        statusEl.textContent = isFetchOnly ? "⬇️ Reading latest data from Google Sheet..." : "🔄 1/2 Reading Google Sheet first...";
+        statusEl.textContent = "☁️ Syncing changes to Google Sheet...";
         statusEl.style.color = "var(--primary)";
       }
 
       try {
-        // ---------------------------------------------------------------------
-        // STRICT STEP 1: READ / FETCH CLOUD DATA FROM GOOGLE SHEET FIRST
-        // ---------------------------------------------------------------------
-        const fetchUrl = url + (url.includes("?") ? "&" : "?") + "action=fetch&token=" + encodeURIComponent(token);
-        const fetchRes = await fetch(fetchUrl);
-        const fetchResult = await fetchRes.json();
-
-        if (fetchResult.status !== "success" || !fetchResult.data) {
-          throw new Error(fetchResult.message || "Failed to read data from Google Sheet");
-        }
-
-        const cloudData = fetchResult.data;
-
-        // ---------------------------------------------------------------------
-        // STRICT STEP 2: MERGE CLOUD DATA WITH LOCAL DATA SAFELY (NEVER CLEAR)
-        // ---------------------------------------------------------------------
-        // A. Merge Entries
-        const sheetEntries = Array.isArray(cloudData.entries)
-          ? cloudData.entries.map(e => ({ ...e, date: normalizeDate(e.date) }))
-          : [];
-
-        const sheetIdSet = new Set(sheetEntries.map(e => e.id).filter(Boolean));
-        const sheetFps = new Set(sheetEntries.map(entryFingerprint));
-
-        // Keep local entries that were created locally (e.g. offline) and not yet on sheet
-        const localNewEntries = appState.entries.filter(localE => {
-          if (localE.id && sheetIdSet.has(localE.id)) return false;
-          if (sheetFps.has(entryFingerprint(localE))) return false;
-          return true;
-        });
-
-        // Merged entries: local new entries on top + sheet entries (0 duplicates)
-        appState.entries = [...localNewEntries, ...sheetEntries];
-        saveEntries();
-
-        // B. Merge Accounts
-        const sheetAccounts = Array.isArray(cloudData.accounts) ? cloudData.accounts : [];
-        if (appState.accounts.length === 0 && sheetAccounts.length > 0) {
-          // If local device had 0 accounts (e.g. freshly opened Device 2), adopt all sheet accounts!
-          appState.accounts = sheetAccounts;
-        } else if (sheetAccounts.length > 0) {
-          const localAcMap = new Map();
-          appState.accounts.forEach(a => {
-            if (a && a.name) localAcMap.set(a.name.trim().toLowerCase(), a);
-          });
-          sheetAccounts.forEach(sa => {
-            if (sa && sa.name) {
-              const key = sa.name.trim().toLowerCase();
-              if (!localAcMap.has(key)) {
-                localAcMap.set(key, sa);
-              }
-            }
-          });
-          appState.accounts = Array.from(localAcMap.values());
-        }
-        saveAccounts();
-
-        // C. Merge Telegram Settings
-        if (cloudData.telegram) {
-          if (cloudData.telegram.botToken && !appState.settings.tgBotToken) {
-            appState.settings.tgBotToken = cloudData.telegram.botToken;
-          }
-          if (Array.isArray(cloudData.telegram.chatIds) && cloudData.telegram.chatIds.length > 0 && (!appState.settings.tgChatIds || appState.settings.tgChatIds.length === 0)) {
-            appState.settings.tgChatIds = cloudData.telegram.chatIds;
-          }
-          saveSettings();
-        }
-
-        // Refresh all screen components so user immediately sees all cloud data
-        populateAccountsDropdown();
-        renderAccountsTable();
-        renderHistoryTable();
-        updateSettingsUI();
-        calculateAll();
-        updateTransferPreview();
-
-        // If caller requested fetch-only, we are done
-        if (isFetchOnly) {
-          const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-          if (statusEl) {
-            statusEl.textContent = `✓ Synced with Sheet at ${timeStr} (${sheetEntries.length} entries)`;
-            statusEl.style.color = "var(--success)";
-          }
-          if (!silent || isManual) {
-            showToast(`Synced ${sheetEntries.length} entries & accounts from Google Sheet!`, "success");
-          }
-          return true;
-        }
-
-        // ---------------------------------------------------------------------
-        // STRICT STEP 3: UPLOAD THE COMPLETE MERGED STATE BACK TO GOOGLE SHEET
-        // ---------------------------------------------------------------------
-        if (statusEl) {
-          statusEl.textContent = "☁️ 2/2 Uploading merged data to Google Sheet...";
-          statusEl.style.color = "var(--primary)";
-        }
-
         const payload = {
           action: "upload",
           token: token,
@@ -3113,31 +3081,34 @@ function responseJSON(obj) {
           }
         };
 
-        const uploadRes = await fetch(url, {
+        const res = await fetch(url, {
           method: "POST",
           headers: { "Content-Type": "text/plain;charset=utf-8" },
           body: JSON.stringify(payload)
         });
 
-        const uploadResult = await uploadRes.json();
-        if (uploadResult.status !== "success") {
-          throw new Error(uploadResult.message || "Upload failed");
+        const result = await res.json();
+        if (result.status === "success") {
+          // Mark all current entries and accounts as synced with cloud
+          appState.entries.forEach(e => { e.synced = true; });
+          appState.accounts.forEach(a => { a.synced = true; });
+          saveEntries();
+          saveAccounts();
+
+          const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+          if (statusEl) {
+            statusEl.textContent = `✓ Synced with Sheet at ${timeStr} (${appState.entries.length} entries)`;
+            statusEl.style.color = "var(--success)";
+          }
+          if (isManual) {
+            showToast("Uploaded successfully to Google Sheet! ✅", "success");
+          }
+          return true;
+        } else {
+          throw new Error(result.message || "Upload failed");
         }
-
-        const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-        if (statusEl) {
-          statusEl.textContent = `✓ Fully synced with Sheet at ${timeStr} (${appState.entries.length} entries)`;
-          statusEl.style.color = "var(--success)";
-        }
-
-        if (!silent || isManual) {
-          showToast(`Google Sheet synced! (${appState.entries.length} entries safe)`, "success");
-        }
-
-        return true;
-
       } catch (err) {
-        console.error("Sync error:", err);
+        console.error("Push to Google Sheet error:", err);
         if (statusEl) {
           statusEl.textContent = "Sync error: " + (err.message || "Failed");
           statusEl.style.color = "var(--danger)";
@@ -3147,37 +3118,150 @@ function responseJSON(obj) {
         }
         return false;
       } finally {
-        isSyncInProgress = false;
-        if (pendingSync) {
-          pendingSync = false;
-          setTimeout(() => syncWithGoogleSheet({ silent: true }), 400);
+        isPushing = false;
+      }
+    }
+
+    let isFetching = false;
+
+    async function fetchFromGoogleSheet(options = {}) {
+      const { silent = false, isManual = false } = options;
+      const url = appState.settings.gsheetUrl || document.getElementById("gsheet-url")?.value.trim();
+      const token = appState.settings.gsheetToken || document.getElementById("gsheet-token")?.value.trim();
+
+      if (!url || !token) {
+        if (isManual) {
+          showToast("Please enter Google Web App URL & Security Token first!", "error");
         }
+        return false;
+      }
+
+      if (isFetching) return false;
+      isFetching = true;
+
+      const statusEl = document.getElementById("gsheet-status");
+      if (statusEl) {
+        statusEl.textContent = "⬇️ Fetching data from Google Sheet...";
+        statusEl.style.color = "var(--primary)";
+      }
+
+      try {
+        const fetchUrl = url + (url.includes("?") ? "&" : "?") + "action=fetch&token=" + encodeURIComponent(token);
+        const res = await fetch(fetchUrl);
+        const result = await res.json();
+
+        if (result.status !== "success" || !result.data) {
+          throw new Error(result.message || "Failed to read data from Google Sheet");
+        }
+
+        const cloudData = result.data;
+        const deletedEntrySet = new Set(appState.deletedEntryIds || []);
+        const deletedAccountSet = new Set((appState.deletedAccountNames || []).map(n => n.toLowerCase().trim()));
+
+        // 1. Process Entries from Sheet (Filter out anything in deletedEntryIds)
+        const rawSheetEntries = Array.isArray(cloudData.entries) ? cloudData.entries : [];
+        const validSheetEntries = rawSheetEntries
+          .map(e => ({ ...e, date: normalizeDate(e.date), synced: true }))
+          .filter(e => {
+            if (e.id && deletedEntrySet.has(e.id)) return false;
+            return true;
+          });
+
+        const sheetIdSet = new Set(validSheetEntries.map(e => e.id).filter(Boolean));
+        const sheetFps = new Set(validSheetEntries.map(entryFingerprint));
+
+        // Keep local entries ONLY if they were created offline and have NOT been synced yet
+        // If a local entry had synced: true, but is missing from sheet, that means it was deleted from sheet!
+        const localUnsynced = appState.entries.filter(localE => {
+          if (localE.synced === true) return false; // Deleted on sheet
+          if (localE.id && (sheetIdSet.has(localE.id) || deletedEntrySet.has(localE.id))) return false;
+          if (sheetFps.has(entryFingerprint(localE))) return false;
+          return true;
+        });
+
+        appState.entries = [...localUnsynced, ...validSheetEntries];
+        saveEntries();
+
+        // 2. Process Accounts from Sheet (Filter out anything in deletedAccountNames)
+        const rawSheetAccounts = Array.isArray(cloudData.accounts) ? cloudData.accounts : [];
+        const validSheetAccounts = rawSheetAccounts
+          .map(a => ({ ...a, synced: true }))
+          .filter(a => {
+            if (!a || !a.name) return false;
+            const normName = a.name.toLowerCase().trim();
+            if (deletedAccountSet.has(normName)) return false;
+            return true;
+          });
+
+        const sheetAcNames = new Set(validSheetAccounts.map(a => a.name.toLowerCase().trim()));
+        const localUnsyncedAccounts = appState.accounts.filter(localA => {
+          if (localA.synced === true) return false; // Deleted on sheet
+          if (!localA.name) return false;
+          const normName = localA.name.toLowerCase().trim();
+          if (sheetAcNames.has(normName) || deletedAccountSet.has(normName)) return false;
+          return true;
+        });
+
+        appState.accounts = [...validSheetAccounts, ...localUnsyncedAccounts];
+        saveAccounts();
+
+        // 3. Process Telegram
+        if (cloudData.telegram) {
+          if (cloudData.telegram.botToken && !appState.settings.tgBotToken) {
+            appState.settings.tgBotToken = cloudData.telegram.botToken;
+          }
+          if (Array.isArray(cloudData.telegram.chatIds) && cloudData.telegram.chatIds.length > 0 && (!appState.settings.tgChatIds || appState.settings.tgChatIds.length === 0)) {
+            appState.settings.tgChatIds = cloudData.telegram.chatIds;
+          }
+          saveSettings();
+        }
+
+        // Refresh all UI elements
+        populateAccountsDropdown();
+        renderAccountsTable();
+        renderHistoryTable();
+        updateSettingsUI();
+        calculateAll();
+        updateTransferPreview();
+
+        const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        if (statusEl) {
+          statusEl.textContent = `✓ Fetched ${appState.entries.length} entries at ${timeStr}`;
+          statusEl.style.color = "var(--success)";
+        }
+
+        if (!silent || isManual) {
+          showToast(`Fetched ${validSheetEntries.length} entries & accounts from Google Sheet!`, "success");
+        }
+
+        // If local had new unsynced items, push merged state back to sheet
+        if (localUnsynced.length > 0 || localUnsyncedAccounts.length > 0) {
+          triggerAutoSyncToGoogleSheet(500);
+        }
+
+        return true;
+
+      } catch (err) {
+        console.error("Fetch from Google Sheet error:", err);
+        if (statusEl) {
+          statusEl.textContent = "Fetch error: " + (err.message || "Failed");
+          statusEl.style.color = "var(--danger)";
+        }
+        if (isManual) {
+          showToast("Fetch error: " + err.message, "error");
+        }
+        return false;
+      } finally {
+        isFetching = false;
       }
     }
 
     async function handleFetchFromGoogleSheet() {
-      await syncWithGoogleSheet({ isManual: true, isFetchOnly: true });
+      await fetchFromGoogleSheet({ isManual: true });
     }
 
     async function handleSafeUploadToGoogleSheet() {
-      // Under strict rule, uploading always reads first, merges, and then uploads
-      await syncWithGoogleSheet({ isManual: true, isFetchOnly: false });
-    }
-
-    let autoSyncTimer = null;
-
-    function triggerAutoSyncToGoogleSheet(debounceMs = 600) {
-      const url = appState.settings.gsheetUrl;
-      const token = appState.settings.gsheetToken;
-      if (!url || !token) return;
-      if (appState.settings.autoSyncGSheet === false) return;
-
-      if (autoSyncTimer) clearTimeout(autoSyncTimer);
-
-      autoSyncTimer = setTimeout(() => {
-        // STRICT RULE: auto-sync also reads first, merges, and then uploads!
-        syncWithGoogleSheet({ silent: true, isFetchOnly: false });
-      }, debounceMs);
+      await pushStateToGoogleSheet({ isManual: true });
     }
 
     function openAppsScriptGuideModal() {
@@ -3354,14 +3438,18 @@ function responseJSON(obj) {
       localStorage.removeItem(STORAGE_KEY_ACCOUNTS);
       localStorage.removeItem(STORAGE_KEY_ENTRIES);
       localStorage.removeItem(STORAGE_KEY_SETTINGS);
+      localStorage.removeItem(STORAGE_KEY_DELETED);
 
       appState = {
         accounts: [],
         entries: [],
+        deletedEntryIds: [],
+        deletedAccountNames: [],
         settings: {
           prefilledOpeningPointBal: 0,
           gsheetUrl: "",
           gsheetToken: "",
+          autoSyncGSheet: true,
           tgBotToken: "",
           tgChatIds: [],
           tgEnabled: true
@@ -3371,6 +3459,7 @@ function responseJSON(obj) {
       saveAccounts();
       saveEntries();
       saveSettings();
+      saveDeleted();
 
       populateAccountsDropdown();
       renderAccountsTable();
