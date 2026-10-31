@@ -1206,6 +1206,13 @@
           </div>
         </div>
 
+        <div style="margin-top: 0.85rem; display: flex; align-items: center; gap: 0.5rem;">
+          <input type="checkbox" id="gsheet-auto-sync" style="width: 18px; height: 18px; cursor: pointer;" onchange="handleToggleAutoSync()">
+          <label for="gsheet-auto-sync" style="font-size: 0.88rem; font-weight: 600; cursor: pointer;">
+            Auto-upload changes to Google Sheet (Every entry, transfer & account change)
+          </label>
+        </div>
+
         <div class="actions-row" style="margin-top: 1rem;">
           <button type="button" class="btn btn-primary" onclick="handleSaveGSheetConfig()">
             <span>💾</span> Save Config
@@ -1662,6 +1669,7 @@ function responseJSON(obj) {
         prefilledOpeningPointBal: 0,
         gsheetUrl: "",
         gsheetToken: "",
+        autoSyncGSheet: true,
         tgBotToken: "",
         tgChatIds: [],
         tgEnabled: true
@@ -2045,7 +2053,10 @@ function responseJSON(obj) {
 
       showToast("Entry saved successfully!", "success");
 
-      // 4. Send Telegram Notification if configured
+      // 4. Auto Sync to Google Sheet if configured
+      triggerAutoSyncToGoogleSheet();
+
+      // 5. Send Telegram Notification if configured
       const hasRecipients = (Array.isArray(appState.settings.tgChatIds) && appState.settings.tgChatIds.length > 0) || !!appState.settings.tgChatId;
       if (appState.settings.tgEnabled !== false && appState.settings.tgBotToken && hasRecipients) {
         try {
@@ -2159,7 +2170,10 @@ function responseJSON(obj) {
 
       showToast(`Transferred ₹${formatNumber(amt)} from ${fromAc.name} to ${toAc.name}!`, "success");
 
-      // 4. Send Telegram Notification if configured
+      // 4. Auto Sync to Google Sheet if configured
+      triggerAutoSyncToGoogleSheet();
+
+      // 5. Send Telegram Notification if configured
       const hasTransferRecipients = (Array.isArray(appState.settings.tgChatIds) && appState.settings.tgChatIds.length > 0) || !!appState.settings.tgChatId;
       if (appState.settings.tgEnabled !== false && appState.settings.tgBotToken && hasTransferRecipients) {
         try {
@@ -2333,6 +2347,7 @@ function responseJSON(obj) {
       appState.entries = appState.entries.filter(e => e.id !== id);
       saveEntries();
       renderHistoryTable();
+      triggerAutoSyncToGoogleSheet();
       showToast("Entry deleted successfully.", "info");
     }
 
@@ -2356,6 +2371,7 @@ function responseJSON(obj) {
       appState.entries = appState.entries.filter(e => e.id !== id);
       saveEntries();
       renderHistoryTable();
+      triggerAutoSyncToGoogleSheet();
       showToast("Transfer removed.", "info");
     }
 
@@ -2435,6 +2451,7 @@ function responseJSON(obj) {
       saveEntries();
       closeEditEntryModal();
       renderHistoryTable();
+      triggerAutoSyncToGoogleSheet();
       showToast("Entry updated successfully!", "success");
     }
 
@@ -2465,6 +2482,7 @@ function responseJSON(obj) {
 
       renderAccountsTable();
       populateAccountsDropdown();
+      triggerAutoSyncToGoogleSheet();
       showToast(`Account "${name}" added with balance ₹${formatNumber(bal)}`, "success");
     }
 
@@ -2532,6 +2550,7 @@ function responseJSON(obj) {
       renderAccountsTable();
       populateAccountsDropdown();
       calculateAll();
+      triggerAutoSyncToGoogleSheet();
       showToast("Account updated successfully!", "success");
     }
 
@@ -2548,6 +2567,7 @@ function responseJSON(obj) {
       renderAccountsTable();
       populateAccountsDropdown();
       calculateAll();
+      triggerAutoSyncToGoogleSheet();
       showToast(`Account "${ac.name}" deleted.`, "info");
     }
 
@@ -2570,6 +2590,7 @@ function responseJSON(obj) {
       input.value = "";
       updateSettingsUI();
       calculateAll();
+      triggerAutoSyncToGoogleSheet();
       showToast(`Added ${extraVal} extra points! New Opening Balance: ${appState.settings.prefilledOpeningPointBal}`, "success");
     }
 
@@ -2586,6 +2607,7 @@ function responseJSON(obj) {
       input.value = "";
       updateSettingsUI();
       calculateAll();
+      triggerAutoSyncToGoogleSheet();
       showToast(`Opening Point Balance set to ${val}`, "success");
     }
 
@@ -2621,6 +2643,7 @@ function responseJSON(obj) {
       idInput.value = "";
       nameInput.value = "";
       renderTelegramChatIdsTable();
+      triggerAutoSyncToGoogleSheet();
       showToast(`Added Telegram recipient "${name}"`, "success");
     }
 
@@ -2629,6 +2652,7 @@ function responseJSON(obj) {
       appState.settings.tgChatIds = appState.settings.tgChatIds.filter(item => item.id !== id);
       saveSettings();
       renderTelegramChatIdsTable();
+      triggerAutoSyncToGoogleSheet();
       showToast("Telegram recipient removed.", "info");
     }
 
@@ -2671,7 +2695,7 @@ function responseJSON(obj) {
       appState.settings.tgBotToken = token;
       appState.settings.tgEnabled = enabled;
       saveSettings();
-
+      triggerAutoSyncToGoogleSheet();
       showToast("Telegram bot configuration saved!", "success");
     }
 
@@ -2883,6 +2907,11 @@ function responseJSON(obj) {
       if (gUrl && appState.settings.gsheetUrl) gUrl.value = appState.settings.gsheetUrl;
       if (gTok && appState.settings.gsheetToken) gTok.value = appState.settings.gsheetToken;
 
+      const autoSyncCheck = document.getElementById("gsheet-auto-sync");
+      if (autoSyncCheck) {
+        autoSyncCheck.checked = appState.settings.autoSyncGSheet !== false;
+      }
+
       const tgTok = document.getElementById("tg-bot-token");
       const tgEn = document.getElementById("tg-enabled-checkbox");
       if (tgTok && appState.settings.tgBotToken) tgTok.value = appState.settings.tgBotToken;
@@ -2897,15 +2926,30 @@ function responseJSON(obj) {
       el.type = el.type === "password" ? "text" : "password";
     }
 
+    function handleToggleAutoSync() {
+      const checkbox = document.getElementById("gsheet-auto-sync");
+      appState.settings.autoSyncGSheet = checkbox.checked;
+      saveSettings();
+      showToast(checkbox.checked ? "Auto-upload to Google Sheet enabled!" : "Auto-upload to Google Sheet disabled.", "info");
+      if (checkbox.checked && appState.settings.gsheetUrl && appState.settings.gsheetToken) {
+        triggerAutoSyncToGoogleSheet(100);
+      }
+    }
+
     // SETTINGS: Google Sheets Integration with Fetch-Before-Upload Protection & Strict Token Security
     function handleSaveGSheetConfig() {
       const url = document.getElementById("gsheet-url").value.trim();
       const token = document.getElementById("gsheet-token").value.trim();
+      const autoSync = document.getElementById("gsheet-auto-sync")?.checked !== false;
 
       appState.settings.gsheetUrl = url;
       appState.settings.gsheetToken = token;
+      appState.settings.autoSyncGSheet = autoSync;
       saveSettings();
       showToast("Google Sheet configuration & token saved!", "success");
+      if (url && token && autoSync) {
+        triggerAutoSyncToGoogleSheet(100);
+      }
     }
 
     async function handleFetchFromGoogleSheet() {
@@ -3064,6 +3108,68 @@ function responseJSON(obj) {
         statusEl.style.color = "var(--danger)";
         showToast("Upload error: " + err.message, "error");
       }
+    }
+
+    let autoSyncTimer = null;
+
+    function triggerAutoSyncToGoogleSheet(debounceMs = 600) {
+      const url = appState.settings.gsheetUrl;
+      const token = appState.settings.gsheetToken;
+      if (!url || !token) return;
+      if (appState.settings.autoSyncGSheet === false) return;
+
+      if (autoSyncTimer) clearTimeout(autoSyncTimer);
+
+      autoSyncTimer = setTimeout(async () => {
+        const statusEl = document.getElementById("gsheet-status");
+        if (statusEl) {
+          statusEl.textContent = "☁️ Auto-syncing to Google Sheet...";
+          statusEl.style.color = "var(--primary)";
+        }
+
+        const payload = {
+          action: "upload",
+          token: token,
+          data: {
+            entries: appState.entries,
+            accounts: appState.accounts,
+            telegram: {
+              botToken: appState.settings.tgBotToken || "",
+              chatIds: appState.settings.tgChatIds || [],
+              enabled: appState.settings.tgEnabled !== false
+            }
+          }
+        };
+
+        try {
+          const response = await fetch(url, {
+            method: "POST",
+            headers: { "Content-Type": "text/plain;charset=utf-8" },
+            body: JSON.stringify(payload)
+          });
+
+          const result = await response.json();
+          if (result.status === "success") {
+            const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            if (statusEl) {
+              statusEl.textContent = `✓ Auto-synced at ${timeStr}`;
+              statusEl.style.color = "var(--success)";
+            }
+            showToast("Google Sheet auto-synced ☁️", "success");
+          } else {
+            if (statusEl) {
+              statusEl.textContent = "Auto-sync error: " + (result.message || "Failed");
+              statusEl.style.color = "var(--danger)";
+            }
+          }
+        } catch (err) {
+          console.warn("Auto-sync to Google Sheet failed:", err);
+          if (statusEl) {
+            statusEl.textContent = "Auto-sync pending (network/offline)";
+            statusEl.style.color = "#d97706";
+          }
+        }
+      }, debounceMs);
     }
 
     function openAppsScriptGuideModal() {
