@@ -1966,7 +1966,7 @@ function responseJSON(obj) {
       if (stripOpen) stripOpen.textContent = formatNumber(openingPointBal);
 
       // Commission calculations: PayIn 4% + PayOut 1%
-      const payInComm = payIn * 0.04;
+      const payInComm = payIn * 0.03;
       const payOutComm = payOut * 0.01;
       const totalComm = payInComm + payOutComm;
 
